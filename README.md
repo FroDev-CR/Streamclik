@@ -35,6 +35,7 @@ Cada decisión técnica relevante está justificada por escrito. Empieza por aqu
 | [Flujo de autenticación](docs/03-flujo-autenticacion.md) | Registro, login, middleware y separación autenticación/autorización |
 | [Flujo correo → PIN](docs/04-flujo-email-a-pin.md) | El pipeline completo paso a paso, con sus modos de fallo |
 | [Integraciones futuras](docs/05-integraciones-futuras.md) | WhatsApp, Telegram, push y cómo encajan en lo ya construido |
+| **[Despliegue](docs/06-despliegue.md)** | **Runbook completo: Supabase, Vercel, dominio, correo entrante y verificación** |
 
 ### Decisiones registradas (ADR)
 
@@ -48,7 +49,28 @@ Cada decisión técnica relevante está justificada por escrito. Empieza por aqu
 | [0006](docs/adr/0006-lecturas-directas-sin-caso-de-uso.md) | Las lecturas simples no pasan por casos de uso |
 | [0007](docs/adr/0007-almacenamiento-de-credenciales.md) | Credenciales de streaming: cifrado y deuda técnica reconocida |
 
-## Puesta en marcha
+## Desplegar en producción
+
+Sigue el **[runbook de despliegue](docs/06-despliegue.md)**: cubre Supabase,
+Vercel, el dominio y el correo entrante de principio a fin, con las
+verificaciones intermedias y una tabla de diagnóstico.
+
+Resumen de las piezas y dónde vive cada una:
+
+```
+   Netflix
+      │  correo a netflix1@streamclick.xyz
+      ▼
+   Cloudflare Email Routing  ──►  Email Worker  (workers/inbound-email/)
+                                       │  POST firmado con HMAC
+                                       ▼
+   Vercel  ──►  Next.js  ──►  Supabase (Postgres + RLS + Realtime)
+                                       │
+                                       ▼
+                             El PIN aparece en el dashboard
+```
+
+## Desarrollo local
 
 ### 1. Dependencias
 
@@ -75,6 +97,8 @@ de a las tres de la mañana cuando llegue el primer correo.
 
 ### 3. Base de datos
 
+Con la CLI de Supabase:
+
 ```bash
 supabase link --project-ref <tu-ref>
 supabase db push          # aplica supabase/migrations/
@@ -87,6 +111,11 @@ O en local con Docker:
 supabase start
 supabase db reset
 ```
+
+Si prefieres no instalar la CLI, pega [`supabase/setup.sql`](supabase/setup.sql)
+en el SQL Editor de Supabase: es la concatenación de las mismas migraciones.
+Regenéralo con `node scripts/build-setup-sql.mjs` tras añadir cualquier
+migración nueva.
 
 ### 4. Primer administrador
 
@@ -128,6 +157,9 @@ npm run lint       # ESLint
 npm test           # Vitest
 npm run db:push    # aplicar migraciones
 npm run db:types   # regenerar tipos desde el esquema
+
+node scripts/generate-secrets.mjs   # genera los dos secretos criptográficos
+node scripts/build-setup-sql.mjs    # regenera supabase/setup.sql
 ```
 
 ## Estado actual

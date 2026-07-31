@@ -1,0 +1,17 @@
+{
+  "name": "streamclick-inbound-email-worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Email Worker de Cloudflare: recibe el correo de streamclick.xyz y lo reenvía firmado al webhook de StreamClick",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "secret": "wrangler secret put INBOUND_EMAIL_WEBHOOK_SECRET"
+  },
+  "dependencies": {
+    "postal-mime": "^2.3.2"
+  },
+  "devDependencies": {
+    "wrangler": "^3.99.0"
+  }
+}

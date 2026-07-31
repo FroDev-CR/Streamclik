@@ -1,0 +1,26 @@
+name = "streamclick-inbound-email"
+main = "src/index.js"
+compatibility_date = "2026-07-01"
+
+# Nota: el enrutamiento de correo NO se declara aquí. Se configura en el panel de
+# Cloudflare (Email → Email Routing → Routes), donde se apunta la regla catch-all
+# de streamclick.xyz a este Worker. Wrangler despliega el código; el panel decide
+# qué correo le llega.
+
+[vars]
+# URL pública del webhook de la aplicación. Debe apuntar al dominio de
+# producción, no a un preview de Vercel: las URL de preview cambian en cada
+# despliegue y el Worker dejaría de encontrar la aplicación.
+WEBHOOK_URL = "https://streamclick.xyz/api/webhooks/inbound-email"
+
+# Buzón real al que reenviar el correo si el webhook falla, para no perder el
+# código durante una caída. Opcional pero muy recomendable.
+# Debe estar verificado en Cloudflare (Email Routing → Destination addresses).
+# FORWARD_TO = "tu-correo-personal@gmail.com"
+
+# INBOUND_EMAIL_WEBHOOK_SECRET NO se declara aquí: es un secreto y este archivo
+# está en el repositorio. Se configura con:
+#
+#   npx wrangler secret put INBOUND_EMAIL_WEBHOOK_SECRET
+#
+# Debe ser EXACTAMENTE el mismo valor que la variable homónima en Vercel.

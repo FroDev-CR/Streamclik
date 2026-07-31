@@ -1,6 +1,6 @@
 {
   "messageId": "prueba-local-household-001",
-  "to": "netflix1@streamclick.com",
+  "to": "netflix1@streamclick.xyz",
   "from": "\"Netflix\" <info@account.netflix.com>",
   "subject": "Importante: cómo actualizar tu Hogar con Netflix",
   "text": "Hola,\n\nRecibimos una solicitud para ver Netflix desde un dispositivo fuera de tu Hogar.\n\nTu código de acceso temporal es 4821\n\nEste código caduca en 15 minutos.\n\n© 2026 Netflix",
