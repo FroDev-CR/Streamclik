@@ -95,7 +95,7 @@ export default function LandingPage() {
                 Entrar
               </Link>
               <Link
-                href="/registro"
+                href="/catalogo"
                 className="landing-button landing-button-dark landing-button-small"
               >
                 Ver cuentas
@@ -127,7 +127,7 @@ export default function LandingPage() {
 
               <div className="landing-hero-actions">
                 <Link
-                  href="/registro"
+                  href="/catalogo"
                   className="landing-button landing-button-yellow"
                 >
                   Quiero mi perfil
@@ -244,7 +244,7 @@ export default function LandingPage() {
               </li>
             </ul>
 
-            <Link href="/registro" className="landing-inline-link">
+            <Link href="/catalogo" className="landing-inline-link">
               Ver cuentas disponibles <ArrowRight aria-hidden />
             </Link>
           </div>
@@ -346,7 +346,7 @@ export default function LandingPage() {
             Nosotros hacemos el resto.
           </h2>
           <p>Tu perfil listo, tu código a mano y ningún chat de por medio.</p>
-          <Link href="/registro" className="landing-button landing-button-dark">
+          <Link href="/catalogo" className="landing-button landing-button-dark">
             Ver cuentas disponibles
             <ArrowRight aria-hidden />
           </Link>
@@ -361,7 +361,7 @@ export default function LandingPage() {
           <p>Cuentas y perfiles de streaming, sin complicaciones.</p>
           <div className="landing-footer-links">
             <Link href="/login">Entrar</Link>
-            <Link href="/registro">Crear cuenta</Link>
+            <Link href="/catalogo">Ver catálogo</Link>
           </div>
         </div>
       </footer>

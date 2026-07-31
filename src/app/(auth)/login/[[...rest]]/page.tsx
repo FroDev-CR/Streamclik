@@ -1,36 +1,38 @@
-import { SignIn } from '@clerk/nextjs';
-import type { Metadata } from 'next';
+import { SignIn } from "@clerk/nextjs";
+import type { Metadata } from "next";
 
-import { clerkAppearance } from '@/features/auth/clerk-appearance';
+import { clerkAppearance } from "@/features/auth/clerk-appearance";
 
-export const metadata: Metadata = { title: 'Entrar' };
+export const metadata: Metadata = { title: "Entrar" };
 
-/**
- * Inicio de sesión.
- *
- * La ruta es un catch-all (`[[...rest]]`) porque Clerk navega internamente a
- * subrutas — verificación en dos pasos, recuperación de contraseña — sin salir
- * de esta página. Con una ruta fija, esos pasos darían 404 justo en mitad del
- * flujo, y sólo para los usuarios que activaran 2FA o olvidaran la contraseña:
- * el subconjunto que menos aparece en las pruebas manuales.
- *
- * `/recuperar` desapareció como pantalla propia: Clerk resuelve el
- * restablecimiento dentro de este mismo componente.
- */
-export default function LoginPage() {
+type LoginPageProps = {
+  searchParams: Promise<{ redirect_url?: string | string[] }>;
+};
+
+function safeRedirect(value: string | string[] | undefined): string {
+  const candidate = Array.isArray(value) ? value[0] : value;
+  return candidate?.startsWith("/") && !candidate.startsWith("//")
+    ? candidate
+    : "/dashboard";
+}
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const redirectTo = safeRedirect((await searchParams).redirect_url);
+  const signUpUrl = `/registro?redirect_url=${encodeURIComponent(redirectTo)}`;
+
   return (
-    <div className="space-y-6">
-      <div className="space-y-1.5">
-        <h1 className="font-[family-name:--font-display] text-2xl font-bold italic tracking-tight">Entrar</h1>
-        <p className="text-sm text-[--color-content-muted]">
-          Accede para ver los códigos de tus perfiles.
-        </p>
+    <div className="auth-form-content">
+      <div className="auth-form-heading">
+        <p>Tu cuenta StreamClick</p>
+        <h1>Qué bueno verte.</h1>
+        <span>Entra para gestionar tus perfiles y ver tus códigos.</span>
       </div>
 
       <SignIn
         appearance={clerkAppearance}
-        signUpUrl="/registro"
-        fallbackRedirectUrl="/dashboard"
+        signUpUrl={signUpUrl}
+        forceRedirectUrl={redirectTo}
+        fallbackRedirectUrl={redirectTo}
       />
     </div>
   );

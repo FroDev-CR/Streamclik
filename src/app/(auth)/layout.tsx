@@ -1,33 +1,82 @@
-import Link from 'next/link';
+import Link from "next/link";
+import { ArrowLeft, BadgeCheck, KeyRound, Zap } from "lucide-react";
 
-import { Logo } from '@/components/logo';
-import { ShaderBackground } from '@/components/shader-background';
-import { ShineBorder } from '@/components/ui/shine-border';
+import { Logo } from "@/components/logo";
+import { ShaderBackground } from "@/components/shader-background";
 
-/**
- * Layout de las pantallas de autenticación.
- *
- * Centrado y sin navegación: durante el inicio de sesión no hay nada más que
- * hacer, y cada enlace adicional es una vía para abandonar el flujo.
- *
- * La tarjeta va sobre el fondo animado con un velo oscuro y desenfoque. El velo
- * no es decorativo: el shader recorre amarillos muy claros, y sin él el texto
- * gris del formulario perdería contraste cada vez que la onda pasa por debajo.
- * Con el velo, el contraste no depende del fotograma.
- */
-export default function AuthLayout({ children }: { children: React.ReactNode }) {
+export default function AuthLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <main className="relative flex min-h-dvh flex-col items-center justify-center overflow-hidden px-5 py-10">
-      <ShaderBackground />
-      <div aria-hidden className="absolute inset-0 -z-10 bg-[--color-canvas]/72 backdrop-blur-[2px]" />
+    <main className="auth-page">
+      <ShaderBackground className="auth-shader" />
+      <div className="auth-background-wash" aria-hidden />
 
-      <Link href="/" className="mb-8">
-        <Logo className="h-12 w-auto" priority />
-      </Link>
+      <div className="auth-shell">
+        <header className="auth-topbar">
+          <Link
+            href="/"
+            aria-label="StreamClick, inicio"
+            className="auth-logo-wrap"
+          >
+            <Logo className="auth-logo" priority />
+          </Link>
+          <Link href="/catalogo" className="auth-back-link">
+            <ArrowLeft aria-hidden /> Volver al catálogo
+          </Link>
+        </header>
 
-      <ShineBorder className="max-w-sm bg-[--color-surface]/85 backdrop-blur-xl">
-        <div className="p-6">{children}</div>
-      </ShineBorder>
+        <div className="auth-frame">
+          <aside className="auth-story">
+            <p className="auth-story-label">
+              Tu entretenimiento, sin complicaciones
+            </p>
+            <h2>
+              Entra.
+              <br />
+              Elige.
+              <br />
+              Dale play.
+            </h2>
+            <p className="auth-story-copy">
+              Todo lo que necesitas para disfrutar tu perfil vive en un solo
+              lugar.
+            </p>
+
+            <div className="auth-story-benefits">
+              <div>
+                <Zap aria-hidden />
+                <span>
+                  <strong>Entrega automática</strong>
+                  Tu acceso llega sin esperas.
+                </span>
+              </div>
+              <div>
+                <KeyRound aria-hidden />
+                <span>
+                  <strong>Códigos al instante</strong>
+                  Siempre visibles en tu panel.
+                </span>
+              </div>
+              <div>
+                <BadgeCheck aria-hidden />
+                <span>
+                  <strong>Cuentas originales</strong>
+                  Accesos estables y protegidos.
+                </span>
+              </div>
+            </div>
+          </aside>
+
+          <section className="auth-form-panel">{children}</section>
+        </div>
+
+        <p className="auth-bottom-note">
+          Acceso seguro · Tu información siempre protegida
+        </p>
+      </div>
     </main>
   );
 }

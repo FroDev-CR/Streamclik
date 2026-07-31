@@ -1,34 +1,42 @@
-import { SignUp } from '@clerk/nextjs';
-import type { Metadata } from 'next';
+import { SignUp } from "@clerk/nextjs";
+import type { Metadata } from "next";
 
-import { clerkAppearance } from '@/features/auth/clerk-appearance';
+import { clerkAppearance } from "@/features/auth/clerk-appearance";
 
-export const metadata: Metadata = { title: 'Crear cuenta' };
+export const metadata: Metadata = { title: "Crear cuenta" };
 
-/**
- * Registro.
- *
- * Catch-all por el mismo motivo que el login: Clerk navega a subrutas para la
- * verificación del correo sin abandonar esta página.
- *
- * El rol no se pide ni se acepta en el alta. Todos los usuarios nacen como
- * `client` y la promoción a administrador se hace por SQL: un formulario que
- * permitiera elegir rol sería una escalada de privilegios auto-servida.
- */
-export default function RegistroPage() {
+type RegisterPageProps = {
+  searchParams: Promise<{ redirect_url?: string | string[] }>;
+};
+
+function safeRedirect(value: string | string[] | undefined): string {
+  const candidate = Array.isArray(value) ? value[0] : value;
+  return candidate?.startsWith("/") && !candidate.startsWith("//")
+    ? candidate
+    : "/dashboard";
+}
+
+export default async function RegistroPage({
+  searchParams,
+}: RegisterPageProps) {
+  const redirectTo = safeRedirect((await searchParams).redirect_url);
+  const signInUrl = `/login?redirect_url=${encodeURIComponent(redirectTo)}`;
+
   return (
-    <div className="space-y-6">
-      <div className="space-y-1.5">
-        <h1 className="font-[family-name:--font-display] text-2xl font-bold italic tracking-tight">Crear cuenta</h1>
-        <p className="text-sm text-[--color-content-muted]">
-          Necesitarás confirmar tu correo antes de entrar.
-        </p>
+    <div className="auth-form-content">
+      <div className="auth-form-heading">
+        <p>Empieza en un minuto</p>
+        <h1>Crea tu cuenta.</h1>
+        <span>
+          Tu perfil, tus accesos y tus códigos siempre en un solo lugar.
+        </span>
       </div>
 
       <SignUp
         appearance={clerkAppearance}
-        signInUrl="/login"
-        fallbackRedirectUrl="/dashboard"
+        signInUrl={signInUrl}
+        forceRedirectUrl={redirectTo}
+        fallbackRedirectUrl={redirectTo}
       />
     </div>
   );
