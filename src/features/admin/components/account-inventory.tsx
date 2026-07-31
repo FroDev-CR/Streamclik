@@ -5,7 +5,7 @@ import { useActionState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { ActionState } from '@/features/auth/actions';
+import type { ActionState } from '@/features/shared/action-state';
 import { formatDateTime } from '@/lib/utils';
 
 import { assignProfileAction, revokeAssignmentAction } from '../actions';

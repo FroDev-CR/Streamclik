@@ -6,7 +6,7 @@ import { useFormStatus } from 'react-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
-import type { ActionState } from '@/features/auth/actions';
+import type { ActionState } from '@/features/shared/action-state';
 
 import { createAccountAction } from '../actions';
 import type { AdminServiceOption } from '../queries';

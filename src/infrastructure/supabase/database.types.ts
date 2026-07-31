@@ -36,6 +36,8 @@ export interface Database {
       user_profiles: {
         Row: {
           id: string;
+          /** El `sub` del JWT de Clerk. Identidad externa; `id` es la interna. */
+          clerk_user_id: string | null;
           email: string;
           full_name: string | null;
           phone: string | null;
@@ -46,7 +48,10 @@ export interface Database {
           updated_at: string;
         };
         Insert: {
-          id: string;
+          // Desde la migración a Clerk la tabla genera el uuid por defecto, así
+          // que `id` deja de ser obligatorio en el alta.
+          id?: string;
+          clerk_user_id?: string | null;
           email: string;
           full_name?: string | null;
           phone?: string | null;
@@ -61,8 +66,7 @@ export interface Database {
           telegram_chat_id?: string | null;
           notification_preferences?: Json;
         };
-        // La clave ajena apunta a `auth.users`, fuera del esquema `public`, así
-        // que no se declara aquí.
+        // Ya no hay clave ajena a `auth.users`: la identidad la custodia Clerk.
         Relationships: [];
       };
 
@@ -468,6 +472,21 @@ export interface Database {
       expire_due_assignments: {
         Args: Record<string, never>;
         Returns: number;
+      };
+      /** Identidad interna resuelta desde el `sub` del JWT de Clerk. */
+      current_user_id: {
+        Args: Record<string, never>;
+        Returns: string | null;
+      };
+      /**
+       * Alta o actualización del perfil del usuario autenticado.
+       *
+       * El `sub` se lee del JWT dentro de la función, nunca de estos parámetros:
+       * aceptarlo por parámetro permitiría apropiarse del perfil ajeno.
+       */
+      sync_current_user: {
+        Args: { p_email?: string | null; p_full_name?: string | null };
+        Returns: string;
       };
     };
 

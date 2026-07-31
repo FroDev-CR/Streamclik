@@ -28,3 +28,8 @@ yarn-error.log*
 supabase/.branches/
 supabase/.temp/
 supabase/.env
+
+# Skills de diseño instalados como herramienta local (8 MB de datos CSV).
+# Son instrumental de trabajo, no código de la aplicación: versionarlos
+# multiplicaría por diez el peso del repositorio y llenaría cada diff de ruido.
+.claude/skills/

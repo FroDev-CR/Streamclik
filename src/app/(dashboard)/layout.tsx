@@ -1,8 +1,8 @@
+import { SignOutButton } from '@clerk/nextjs';
 import Link from 'next/link';
 import { LayoutGrid, LogOut, Settings } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { signOutAction } from '@/features/auth/actions';
 import { requireUser } from '@/features/auth/session';
 
 /**
@@ -58,14 +58,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
               </Link>
             )}
 
-            {/* El cierre de sesión es un <form> con Server Action y no un enlace:
-                debe ser una petición POST para que no pueda dispararse desde una
-                imagen o un prefetch. */}
-            <form action={signOutAction}>
-              <Button type="submit" variant="ghost" size="sm" aria-label="Cerrar sesión">
+            {/* Clerk revoca la sesión en su servidor, no sólo borra la cookie
+                local: un token copiado antes del cierre deja de servir. Y sigue
+                sin ser un enlace navegable, así que no puede dispararse desde
+                una imagen o un prefetch. */}
+            <SignOutButton redirectUrl="/login">
+              <Button type="button" variant="ghost" size="sm" aria-label="Cerrar sesión">
                 <LogOut aria-hidden className="size-4" />
               </Button>
-            </form>
+            </SignOutButton>
           </nav>
         </div>
       </header>

@@ -20,6 +20,16 @@ const serverSchema = z.object({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1, 'Falta NEXT_PUBLIC_SUPABASE_ANON_KEY'),
 
   /**
+   * Clerk emite la identidad; Supabase la valida contra el JWKS de Clerk y la
+   * expone en `auth.jwt()`. La autorización sigue en RLS (ADR-0003): estas dos
+   * claves sólo deciden *quién* consulta, nunca *qué* puede ver.
+   */
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z
+    .string()
+    .startsWith('pk_', 'NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY debe empezar por pk_'),
+  CLERK_SECRET_KEY: z.string().startsWith('sk_', 'CLERK_SECRET_KEY debe empezar por sk_'),
+
+  /**
    * Omite RLS por completo. Sólo la usa el webhook de ingesta. Filtrarla
    * equivale a entregar la base de datos entera, de ahí que
    * `infrastructure/supabase/admin.ts` importe `server-only`.
@@ -43,6 +53,7 @@ const serverSchema = z.object({
 const clientSchema = serverSchema.pick({
   NEXT_PUBLIC_SUPABASE_URL: true,
   NEXT_PUBLIC_SUPABASE_ANON_KEY: true,
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: true,
   NEXT_PUBLIC_SITE_URL: true,
 });
 
@@ -89,6 +100,7 @@ export function getClientEnv(): ClientEnv {
   const parsed = clientSchema.safeParse({
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   });
 

@@ -8,7 +8,7 @@ import { makeAssignProfileUseCase, makeRevokeAssignmentUseCase } from '@/infrast
 import { getCredentialCipher } from '@/infrastructure/crypto/credential-cipher';
 import { createSupabaseServerClient } from '@/infrastructure/supabase/server';
 import { requireAdmin } from '@/features/auth/session';
-import type { ActionState } from '@/features/auth/actions';
+import type { ActionState } from '@/features/shared/action-state';
 import { logger } from '@/lib/logger';
 
 /**

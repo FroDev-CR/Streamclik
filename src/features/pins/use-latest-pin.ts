@@ -1,5 +1,6 @@
 'use client';
 
+import { useAuth } from '@clerk/nextjs';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { VerificationPin } from '@/core/domain/entities';
@@ -58,6 +59,12 @@ export function useLatestPin({ accountId, initialPin }: UseLatestPinOptions): Us
   const [isConnected, setIsConnected] = useState(false);
   const [justArrived, setJustArrived] = useState(false);
 
+  // El token de Clerk es lo que RLS evalúa para decidir si este navegador puede
+  // recibir el evento. Sin él la suscripción se establece igual, pero Postgres
+  // no emite nada: el síntoma es una tarjeta que nunca se actualiza y ningún
+  // error en consola.
+  const { getToken } = useAuth();
+
   const arrivalTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const applyPin = useCallback((next: VerificationPin) => {
@@ -86,7 +93,7 @@ export function useLatestPin({ accountId, initialPin }: UseLatestPinOptions): Us
    * código.
    */
   const refetch = useCallback(async () => {
-    const supabase = createSupabaseBrowserClient();
+    const supabase = createSupabaseBrowserClient(getToken);
 
     const { data } = await supabase
       .from('verification_pins')
@@ -97,10 +104,10 @@ export function useLatestPin({ accountId, initialPin }: UseLatestPinOptions): Us
       .maybeSingle();
 
     if (data) applyPin(toEntity(data as PinRow));
-  }, [accountId, applyPin]);
+  }, [accountId, applyPin, getToken]);
 
   useEffect(() => {
-    const supabase = createSupabaseBrowserClient();
+    const supabase = createSupabaseBrowserClient(getToken);
 
     const channel = supabase
       .channel(`pins:${accountId}`)
@@ -134,7 +141,7 @@ export function useLatestPin({ accountId, initialPin }: UseLatestPinOptions): Us
       // pestaña acumula conexiones hasta que Supabase corta por límite.
       void supabase.removeChannel(channel);
     };
-  }, [accountId, applyPin, refetch]);
+  }, [accountId, applyPin, refetch, getToken]);
 
   return { pin, isConnected, justArrived };
 }

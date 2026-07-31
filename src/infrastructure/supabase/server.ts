@@ -1,7 +1,7 @@
 import 'server-only';
 
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
+import { auth } from '@clerk/nextjs/server';
+import { createClient } from '@supabase/supabase-js';
 
 import { getServerEnv } from '@/lib/env';
 import type { Database } from './database.types';
@@ -9,38 +9,26 @@ import type { Database } from './database.types';
 /**
  * Cliente de Supabase para Server Components y Server Actions.
  *
- * Usa la clave `anon` con la sesión del usuario tomada de las cookies, de modo
- * que **RLS se aplica**. Es el cliente por defecto: si una operación funciona con
- * este, no debe usarse el administrativo.
+ * Usa la clave publicable con el JWT de Clerk adjunto, de modo que **RLS se
+ * aplica**. Es el cliente por defecto: si una operación funciona con este, no
+ * debe usarse el administrativo.
  *
- * Es `async` porque en Next.js 15 `cookies()` devuelve una promesa.
+ * Ya no hay cookies de Supabase de por medio. Con Clerk como proveedor externo,
+ * la sesión la custodia Clerk y Supabase se limita a validar el token contra su
+ * JWKS en cada petición. Eso elimina de un plumazo el refresco de token en el
+ * middleware y la clase de error que producía: una sesión que se caía cada hora
+ * y que en desarrollo no se notaba nunca.
+ *
+ * `getToken()` se invoca en cada consulta y no una sola vez al construir el
+ * cliente: Clerk rota el token de sesión cada pocos minutos, y un cliente de
+ * larga vida acabaría firmando con uno caducado. Clerk cachea internamente, así
+ * que llamarlo a menudo no cuesta una petición de red.
  */
 export async function createSupabaseServerClient() {
   const env = getServerEnv();
-  const cookieStore = await cookies();
+  const { getToken } = await auth();
 
-  return createServerClient<Database>(
-    env.NEXT_PUBLIC_SUPABASE_URL,
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            for (const { name, value, options } of cookiesToSet) {
-              cookieStore.set(name, value, options);
-            }
-          } catch {
-            // Los Server Components no pueden escribir cookies: sólo pueden
-            // hacerlo las Server Actions y los Route Handlers. Se ignora aquí
-            // porque el middleware ya refresca la sesión en cada petición, que es
-            // el lugar correcto para ello. Sin este catch, cualquier lectura
-            // desde un Server Component lanzaría al intentar refrescar el token.
-          }
-        },
-      },
-    },
-  );
+  return createClient<Database>(env.NEXT_PUBLIC_SUPABASE_URL, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, {
+    accessToken: async () => (await getToken()) ?? null,
+  });
 }

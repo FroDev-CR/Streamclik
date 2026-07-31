@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 
 import type { UserProfile } from '@/core/domain/entities';
@@ -12,6 +13,12 @@ import { createSupabaseServerClient } from '@/infrastructure/supabase/server';
  * políticas RLS (docs/adr/0003): aunque estas funciones se olvidaran en una ruta
  * nueva, Postgres seguiría sin devolver filas ajenas. Lo que aportan aquí es una
  * redirección limpia en vez de una pantalla vacía sin explicación.
+ *
+ * Con Clerk hay dos identidades en juego y conviene no confundirlas:
+ * el `sub` del JWT (`user_2abc…`), que es la identidad externa, y el uuid de
+ * `user_profiles`, que es la interna a la que apuntan todas las claves foráneas.
+ * `SessionUser.id` es siempre **la interna**, igual que antes de la migración,
+ * para que el resto de la aplicación no tenga que enterarse del cambio.
  */
 
 export interface SessionUser {
@@ -23,29 +30,53 @@ export interface SessionUser {
 /**
  * Devuelve la sesión actual o `null`.
  *
- * Usa `getUser()` y no `getSession()`: el segundo decodifica la cookie sin
- * verificar su firma contra el servidor de Auth.
+ * El perfil se crea en el primer inicio de sesión mediante `sync_current_user`,
+ * que toma la identidad del JWT y no de sus parámetros. Se llama aquí y no en un
+ * webhook de Clerk porque un webhook puede llegar tarde: el usuario que acaba de
+ * registrarse aterrizaría en un dashboard sin perfil y vería un error en su
+ * primera pantalla de la aplicación.
  */
 export async function getCurrentUser(): Promise<SessionUser | null> {
+  const { userId } = await auth();
+  if (!userId) return null;
+
   const supabase = await createSupabaseServerClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return null;
-
-  const { data: profile } = await supabase
+  const { data: existente } = await supabase
     .from('user_profiles')
     .select('*')
-    .eq('id', user.id)
+    .eq('clerk_user_id', userId)
     .maybeSingle();
+
+  let profile = existente;
+
+  if (!profile) {
+    const clerkUser = await currentUser();
+    const email = clerkUser?.primaryEmailAddress?.emailAddress ?? null;
+    const fullName =
+      [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(' ').trim() || null;
+
+    const { error } = await supabase.rpc('sync_current_user', {
+      p_email: email,
+      p_full_name: fullName,
+    });
+
+    if (error) return null;
+
+    const { data: creado } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('clerk_user_id', userId)
+      .maybeSingle();
+
+    profile = creado;
+  }
 
   if (!profile) return null;
 
   return {
-    id: user.id,
-    email: user.email ?? profile.email,
+    id: profile.id,
+    email: profile.email,
     profile: {
       id: profile.id,
       email: profile.email,
@@ -78,6 +109,10 @@ export async function requireUser(nextPath?: string): Promise<SessionUser> {
  * Se redirige al dashboard en vez de mostrar un 403: un cliente que llega a
  * `/admin` casi siempre lo hace por un enlace equivocado, no intentando escalar
  * privilegios. Y si lo intentara, RLS ya le devolvería cero filas.
+ *
+ * El rol se lee de `user_profiles` y no de los metadatos de Clerk a propósito:
+ * revocar admin surte efecto en la siguiente consulta, sin esperar a que caduque
+ * el token de sesión.
  */
 export async function requireAdmin(): Promise<SessionUser> {
   const user = await requireUser('/admin');
