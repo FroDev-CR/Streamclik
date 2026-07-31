@@ -33,3 +33,7 @@ supabase/.env
 # Son instrumental de trabajo, no código de la aplicación: versionarlos
 # multiplicaría por diez el peso del repositorio y llenaría cada diff de ruido.
 .claude/skills/
+
+# Página suelta para mirar el shader en el navegador. Se genera a partir del
+# componente, así que no aporta nada versionarla.
+preview-shader.html

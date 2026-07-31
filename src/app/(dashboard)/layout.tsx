@@ -2,6 +2,7 @@ import { SignOutButton } from '@clerk/nextjs';
 import Link from 'next/link';
 import { LayoutGrid, LogOut, Settings } from 'lucide-react';
 
+import { Logo } from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import { requireUser } from '@/features/auth/session';
 
@@ -34,8 +35,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-10 border-b border-[--color-border] bg-[--color-canvas]/85 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-4xl items-center justify-between gap-3 px-5">
-          <Link href="/dashboard" className="font-semibold tracking-tight">
-            Stream<span className="text-[--color-accent]">Click</span>
+          <Link href="/dashboard" aria-label="StreamClick">
+            <Logo className="h-6 w-auto" priority />
           </Link>
 
           <nav className="flex items-center gap-1">

@@ -21,9 +21,23 @@
   --color-content-muted: #9aa1b1;
   --color-content-subtle: #6b7280;
 
-  --color-accent: #e50914;
-  --color-accent-hover: #ff1a25;
-  --color-accent-soft: #2a0d10;
+  /* Identidad de marca: azul y ámbar, tomados del logotipo.
+     El rojo Netflix de la primera versión describía el servicio que se revende,
+     no la plataforma. Al ponerlo como color de acento, cada botón parecía un
+     control de Netflix y la marca propia desaparecía. */
+  --color-accent: #1e7fff;
+  --color-accent-hover: #4d9bff;
+  --color-accent-soft: #0b1c33;
+
+  --color-brand-amber: #f5a800;
+  --color-brand-amber-hover: #ffbe33;
+
+  /* Los cuatro tonos del fondo animado. Se declaran aquí para que el degradado
+     del shader y la interfaz no puedan desincronizarse al retocar la paleta. */
+  --color-shader-1: #0400fb;
+  --color-shader-2: #6498ff;
+  --color-shader-3: #9e7900;
+  --color-shader-4: #f6de2a;
 
   --color-success: #22c55e;
   --color-warning: #f59e0b;
@@ -90,6 +104,21 @@
   @media (prefers-reduced-motion: reduce) {
     .animate-pin-arrive {
       animation: none;
+    }
+  }
+
+  /* Recorrido del degradado del borde luminoso de <ShineBorder>. En Tailwind 4
+     no hay tailwind.config.js: los keyframes viven aquí, junto al resto del
+     tema. */
+  @keyframes shine-pulse {
+    0% {
+      background-position: 0% 0%;
+    }
+    50% {
+      background-position: 100% 100%;
+    }
+    100% {
+      background-position: 0% 0%;
     }
   }
 }

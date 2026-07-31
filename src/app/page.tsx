@@ -1,13 +1,16 @@
 import Link from 'next/link';
 import { Bell, Clock, ShieldCheck, Zap } from 'lucide-react';
 
+import { Logo } from '@/components/logo';
+import { ShaderBackground } from '@/components/shader-background';
 import { Button } from '@/components/ui/button';
 
 /**
  * Landing pública.
  *
- * Server Component estático: no consulta datos y no envía JavaScript propio al
- * navegador. Es la única página que puede cachearse de forma agresiva.
+ * Server Component: no consulta datos. El único JavaScript propio que envía al
+ * navegador es el del fondo animado, que se monta como componente de cliente
+ * aparte para no arrastrar el resto de la página a la hidratación.
  */
 
 const FEATURES = [
@@ -35,11 +38,18 @@ const FEATURES = [
 
 export default function LandingPage() {
   return (
-    <main className="mx-auto flex min-h-dvh max-w-5xl flex-col px-5 py-8">
+    <main className="relative isolate mx-auto flex min-h-dvh max-w-5xl flex-col px-5 py-8">
+      {/* El fondo se sale del contenedor centrado a propósito: `fixed` lo ancla
+          al viewport para que la onda cubra todo el ancho y no se recorte a los
+          max-w-5xl del contenido. */}
+      <ShaderBackground className="pointer-events-none fixed inset-0 -z-20 h-full w-full" />
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 -z-10 bg-[--color-canvas]/80 backdrop-blur-[3px]"
+      />
+
       <header className="flex items-center justify-between">
-        <span className="text-lg font-semibold tracking-tight">
-          Stream<span className="text-[--color-accent]">Click</span>
-        </span>
+        <Logo className="h-8 w-auto" priority />
 
         <nav className="flex items-center gap-2">
           <Link href="/login">
@@ -55,7 +65,8 @@ export default function LandingPage() {
 
       <section className="flex flex-1 flex-col justify-center py-16 sm:py-24">
         <h1 className="max-w-2xl text-balance text-4xl font-semibold leading-tight tracking-tight sm:text-5xl">
-          Los códigos de tu cuenta compartida, <span className="text-[--color-accent]">al momento</span>.
+          Los códigos de tu cuenta compartida,{' '}
+          <span className="text-[--color-brand-amber]">al momento</span>.
         </h1>
 
         <p className="mt-5 max-w-xl text-pretty text-[--color-content-muted]">
@@ -79,7 +90,7 @@ export default function LandingPage() {
         {FEATURES.map(({ icon: Icon, title, body }) => (
           <div
             key={title}
-            className="rounded-[--radius-card] border border-[--color-border] bg-[--color-surface] p-5"
+            className="rounded-[--radius-card] border border-[--color-border] bg-[--color-surface]/85 p-5 backdrop-blur-xl"
           >
             <Icon aria-hidden className="size-5 text-[--color-accent]" />
             <h2 className="mt-3 font-medium">{title}</h2>

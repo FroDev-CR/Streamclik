@@ -15,8 +15,8 @@ import type { Appearance } from '@clerk/types';
  */
 export const clerkAppearance: Appearance = {
   variables: {
-    colorPrimary: '#e50914',
-    colorBackground: '#101218',
+    colorPrimary: '#1e7fff',
+    colorBackground: 'transparent',
     colorText: '#f2f4f8',
     colorTextSecondary: '#9aa1b1',
     colorInputBackground: '#171a22',
@@ -37,7 +37,10 @@ export const clerkAppearance: Appearance = {
     footer: 'bg-transparent',
     footerAction: 'bg-transparent',
     formButtonPrimary:
-      'bg-[#e50914] hover:bg-[#ff1a25] text-white normal-case font-medium tracking-normal',
+      'bg-[#1e7fff] hover:bg-[#4d9bff] text-white normal-case font-medium tracking-normal',
+    // Los campos van opacos aunque la tarjeta sea translúcida: un input
+    // semitransparente sobre el degradado deja el texto escrito compitiendo con
+    // la onda de detrás justo mientras se teclea la contraseña.
     formFieldInput: 'bg-[#171a22] border-[#23262f]',
     socialButtonsBlockButton: 'bg-[#171a22] border-[#23262f] hover:bg-[#1d2029]',
     dividerLine: 'bg-[#23262f]',
