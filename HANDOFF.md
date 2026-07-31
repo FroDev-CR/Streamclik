@@ -72,6 +72,23 @@ describe el formato viejo.
 - **Cron:** `expire_due_assignments()` programado cada 15 minutos con `pg_cron`
   bajo el nombre `expirar-asignaciones`.
 
+### Autenticación: Clerk (ADR-0008)
+
+La autenticación es **Clerk**, no Supabase Auth. La autorización **no se movió**:
+sigue en RLS. Ver [ADR-0008](docs/adr/0008-clerk-como-proveedor-de-identidad.md).
+
+- Instancia de Clerk: `intent-crawdad-1.clerk.accounts.dev` (claves `pk_test_`/
+  `sk_test_`, o sea entorno de desarrollo).
+- Supabase ya tiene Clerk **habilitado** como Third-Party Auth con ese dominio.
+- Migración `0009` aplicada y verificada: 9 tablas con RLS, 16 políticas, **cero
+  referencias a `auth.uid()`**.
+
+**Lo único que falta para que el login funcione:** activar la integración con
+Supabase en el panel de Clerk, para que el JWT lleve el claim
+`role: "authenticated"`. Sin ese claim Postgres atiende como `anon`, ninguna
+política concede nada, y **todo devuelve vacío sin ningún error visible**. Si
+alguien reporta "entro pero no veo nada", empezar por ahí.
+
 ### Lo que falta y por qué está bloqueado
 
 1. **Verificar el dominio.** `streamclick.xyz` está registrado en la cuenta de
