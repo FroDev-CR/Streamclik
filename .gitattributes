@@ -1,0 +1,35 @@
+# Normaliza los finales de línea en el repositorio.
+#
+# Sin esto, un clon en Windows convierte todo a CRLF y `git status` marca los
+# 113 archivos como modificados aunque el contenido sea idéntico: cualquier
+# commit acabaría arrastrando el repositorio entero y los diffs dejarían de
+# servir para revisar nada.
+#
+# `text=auto` guarda LF en el repositorio y deja que Git decida en el árbol de
+# trabajo. Los archivos que un intérprete lee literalmente se fijan a LF de
+# forma explícita: un `.sh` o un `.sql` con CRLF puede fallar en Linux.
+
+* text=auto
+
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.json text eol=lf
+*.sql  text eol=lf
+*.md   text eol=lf
+*.css  text eol=lf
+*.toml text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.sh   text eol=lf
+
+# Binarios: nunca tocar.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.woff binary
+*.woff2 binary
+*.pdf  binary
