@@ -1,0 +1,45 @@
+# Configuración de la CLI de Supabase para el entorno local (`supabase start`).
+# El proyecto remoto se enlaza con `supabase link --project-ref <ref>`.
+
+project_id = "streamclick"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[studio]
+enabled = true
+port = 54323
+
+# Buzón local que captura los correos de confirmación y recuperación durante el
+# desarrollo, para no depender de un proveedor real.
+[inbucket]
+enabled = true
+port = 54324
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/auth/confirm"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+# En local se omite la confirmación para poder iterar sin abrir el buzón en cada
+# alta. En producción DEBE estar activada: sin ella, cualquiera puede registrarse
+# con el correo de otra persona.
+enable_confirmations = false
+
+# Realtime es lo que entrega los PIN en vivo; sin esto, `supabase start` levanta
+# una instancia en la que el dashboard nunca se actualiza solo.
+[realtime]
+enabled = true
