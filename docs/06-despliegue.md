@@ -133,21 +133,29 @@ automática.
 
 ### 3.2 Variables de entorno
 
-Antes de desplegar, añade las seis en **Environment Variables**, marcadas para
-*Production*, *Preview* y *Development*:
+Antes de desplegar, añade las **ocho** en **Environment Variables**, marcadas
+para *Production*, *Preview* y *Development*:
 
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://xxxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOi...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...
+SUPABASE_SERVICE_ROLE_KEY=sb_secret_...
 INBOUND_EMAIL_WEBHOOK_SECRET=<el generado en el paso 2>
 CREDENTIALS_ENCRYPTION_KEY=<el generado en el paso 2>
 NEXT_PUBLIC_SITE_URL=https://streamclick.xyz
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
 ```
 
-Las seis son obligatorias: se validan con zod al arrancar y el build falla si
-falta alguna. Es deliberado — es preferible un build roto a una aplicación en
-producción que falla la primera vez que llega un correo.
+> ⚠️ **Las dos de Clerk no las protege el build.** Las seis primeras las valida
+> zod desde `getServerEnv()`, pero las de Clerk las lee `clerkMiddleware()`, que
+> corre antes que cualquier código de la aplicación y fuera de ese esquema. Si
+> faltan, **el despliegue se marca como correcto** y luego cada petición devuelve
+> `500 MIDDLEWARE_INVOCATION_FAILED`, sin decir qué variable falta. Ya pasó una
+> vez: es el primer sitio donde mirar ante ese error.
+
+Las claves de Supabase son del formato nuevo (`sb_publishable_` / `sb_secret_`),
+no los JWT `eyJ…` heredados.
 
 ### 3.3 Desplegar
 
