@@ -26,7 +26,11 @@ entrega instantánea al cliente que tiene ese perfil asignado.
 
 ## Documentación
 
-Cada decisión técnica relevante está justificada por escrito. Empieza por aquí:
+> **¿Retomas el proyecto o abres una sesión nueva con un agente?**
+> Empieza por **[`HANDOFF.md`](HANDOFF.md)**: estado actual, decisiones tomadas,
+> trampas ya resueltas y qué queda pendiente, en un solo documento.
+
+Cada decisión técnica relevante está justificada por escrito:
 
 | Documento | Contenido |
 | --- | --- |
