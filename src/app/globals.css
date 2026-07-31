@@ -47,6 +47,11 @@
     ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono', Menlo, monospace;
 
+  /* Kanit, cargada en el layout raíz. Sólo para titulares: en párrafos largos
+     una condensada con itálica marcada cansa la lectura, y este producto se
+     consulta con prisa. El cuerpo se queda en la del sistema. */
+  --font-display: var(--font-kanit), var(--font-sans);
+
   --radius-card: 0.875rem;
 }
 

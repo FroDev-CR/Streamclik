@@ -21,7 +21,7 @@ export default function LoginPage() {
   return (
     <div className="space-y-6">
       <div className="space-y-1.5">
-        <h1 className="text-xl font-semibold tracking-tight">Entrar</h1>
+        <h1 className="font-[family-name:--font-display] text-2xl font-bold italic tracking-tight">Entrar</h1>
         <p className="text-sm text-[--color-content-muted]">
           Accede para ver los códigos de tus perfiles.
         </p>

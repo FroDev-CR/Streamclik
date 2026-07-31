@@ -36,7 +36,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       <header className="sticky top-0 z-10 border-b border-[--color-border] bg-[--color-canvas]/85 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-4xl items-center justify-between gap-3 px-5">
           <Link href="/dashboard" aria-label="StreamClick">
-            <Logo className="h-6 w-auto" priority />
+            <Logo className="h-8 w-auto" priority />
           </Link>
 
           <nav className="flex items-center gap-1">

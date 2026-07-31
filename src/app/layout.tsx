@@ -1,10 +1,30 @@
 import { ClerkProvider } from '@clerk/nextjs';
 import { esES } from '@clerk/localizations';
 import type { Metadata, Viewport } from 'next';
+import { Kanit } from 'next/font/google';
 
 import { clerkAppearance } from '@/features/auth/clerk-appearance';
 
 import './globals.css';
+
+/**
+ * Kanit para los titulares: geométrica, algo condensada y con itálica real, que
+ * es lo que hace juego con el logotipo.
+ *
+ * Sólo se cargan los cuatro cortes que se usan. Cada peso son ~30 KB, y una
+ * familia completa costaría más que el resto del JavaScript de la landing.
+ *
+ * `display: 'swap'` muestra el texto con la fuente del sistema mientras Kanit
+ * descarga. La alternativa es un titular invisible durante ese tiempo, justo en
+ * la primera pintura.
+ */
+const kanit = Kanit({
+  subsets: ['latin'],
+  weight: ['500', '600', '700'],
+  style: ['normal', 'italic'],
+  variable: '--font-kanit',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: {
@@ -30,7 +50,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <ClerkProvider localization={esES} appearance={clerkAppearance}>
-      <html lang="es" suppressHydrationWarning>
+      <html lang="es" className={kanit.variable} suppressHydrationWarning>
         <body className="min-h-dvh">{children}</body>
       </html>
     </ClerkProvider>

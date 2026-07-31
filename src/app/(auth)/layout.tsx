@@ -22,7 +22,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div aria-hidden className="absolute inset-0 -z-10 bg-[--color-canvas]/72 backdrop-blur-[2px]" />
 
       <Link href="/" className="mb-8">
-        <Logo className="h-9 w-auto" priority />
+        <Logo className="h-12 w-auto" priority />
       </Link>
 
       <ShineBorder className="max-w-sm bg-[--color-surface]/85 backdrop-blur-xl">
