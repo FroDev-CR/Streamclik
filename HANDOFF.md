@@ -5,7 +5,7 @@
 > proyecto: qué es, qué está construido, qué decisiones se tomaron y por qué, qué
 > trampas ya se pisaron y qué queda pendiente.
 >
-> Última actualización: 2026-07-31 · Commit `a255eb1`
+> Última actualización: 2026-07-31 · Commit `28aa647`
 
 ---
 
@@ -39,22 +39,68 @@ desarrollo va aquí, nunca a la rama principal sin permiso explícito.
 | Typecheck | ✅ `tsc --noEmit` sin errores |
 | Lint | ✅ Sin avisos |
 | Build de producción | ✅ Correcto sin variables de entorno |
-| **Desplegado en Vercel** | ❌ **No. El usuario está a punto de hacerlo.** |
-| **Proyecto de Supabase** | ❌ **No creado todavía** |
+| **Proyecto de Supabase** | ✅ **Creado y con el esquema instalado** |
+| **Desplegado en Vercel** | ✅ **En producción** |
+| **Dominio `streamclick.xyz`** | ⏳ **Añadido, pendiente de verificar** |
 | **Email Worker desplegado** | ❌ **No** |
+| **Primer admin** | ❌ **No** |
 
-**El usuario va por el paso 1 de [`docs/06-despliegue.md`](docs/06-despliegue.md).**
-Si retoma la conversación, lo más probable es que pregunte por un problema
-concreto de ese runbook. Empieza por ahí.
+### Coordenadas de producción
+
+| Qué | Valor |
+| --- | --- |
+| Proyecto Supabase | `stlvvdvrlgxvgrwunmwv` · región `us-east-2` · org *Streamclick* |
+| URL de Supabase | `https://stlvvdvrlgxvgrwunmwv.supabase.co` |
+| Proyecto Vercel | `frodev-crs-projects/streamclik` (rama `claude/streamclick-saas-architecture-ad9wlm`) |
+| URL en producción | `https://streamclik.vercel.app` — `/api/health` responde `ok` |
+
+**Las claves de Supabase son del formato nuevo** (`sb_publishable_…` y
+`sb_secret_…`), no los JWT `anon`/`service_role` heredados. Funcionan igual: el
+gateway resuelve el rol a partir de la clave. Ojo con el runbook, que todavía
+describe el formato viejo.
+
+### Lo que ya está configurado
+
+- **Esquema:** las 8 migraciones aplicadas. Verificado: 9 tablas, **las 9 con
+  `rowsecurity = true`**, 16 políticas, 7 enums y el catálogo sembrado con 3
+  servicios.
+- **Realtime:** publica exactamente `verification_pins` y `profile_assignments`.
+- **Auth:** Site URL `https://streamclick.xyz`; redirects para el apex y `www`;
+  *Confirm email* activado.
+- **Vercel:** las 6 variables de entorno cargadas en *Production* y *Preview*, y
+  verificadas byte a byte contra los valores originales.
+- **Cron:** `expire_due_assignments()` programado cada 15 minutos con `pg_cron`
+  bajo el nombre `expirar-asignaciones`.
+
+### Lo que falta y por qué está bloqueado
+
+1. **Verificar el dominio.** `streamclick.xyz` está registrado en la cuenta de
+   Vercel de un amigo, no en la del usuario. Vercel pide un TXT de propiedad:
+
+   | Tipo | Nombre | Valor |
+   | --- | --- | --- |
+   | TXT | `_vercel` | `vc-domain-verify=streamclick.xyz,723850ab83d9330a5d98` |
+   | A | `@` | `216.150.1.1` |
+
+2. **Mover el DNS a Cloudflare.** No es opcional: Email Routing sólo funciona si
+   Cloudflare es el DNS autoritativo del dominio, y sin correo entrante el
+   producto no hace lo único que justifica su existencia. El amigo tiene que
+   cambiar los nameservers en su panel de Vercel.
+
+3. **Worker de correo y primer admin.** Dependen de los dos puntos anteriores.
 
 ### Commits
 
 ```
+28aa647  Normalizar los finales de línea con .gitattributes
+31b62a3  Añadir HANDOFF.md para arrancar sesiones nuevas en frío
 a255eb1  Añadir el paquete de despliegue: correo entrante, SQL de instalación y runbook
 635f6fc  Implementar StreamClick: SaaS de cuentas compartidas de streaming
 ```
 
-112 archivos versionados · 66 de código TypeScript · 8 migraciones SQL.
+**`28aa647` no está empujado al remoto.** Sin `.gitattributes`, un clon en
+Windows convierte el árbol entero a CRLF y `git status` marca los 113 archivos
+como modificados sin un solo cambio real de contenido.
 
 ---
 
