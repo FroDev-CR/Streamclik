@@ -1,8 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useActionState, useEffect, useRef } from 'react';
 import { useFormStatus } from 'react-dom';
-import { AtSign, KeyRound, Plus, Users } from 'lucide-react';
+import { ArrowRight, AtSign, KeyRound, Plus, Users } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -197,12 +198,22 @@ export function CreateAccountForm({ services }: { services: AdminServiceOption[]
             )}
 
             {state.success && (
-              <p
+              <div
                 role="status"
-                className="rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-brand-yellow)] px-3 py-2 text-sm font-semibold"
+                className="flex flex-col gap-2 rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-brand-yellow)] px-3 py-2.5"
               >
-                {state.success}
-              </p>
+                <p className="text-sm font-semibold">{state.success}</p>
+                {/* El alta deja al operador donde estaba, así que el enlace de
+                    vuelta es explícito: lo normal tras crear una cuenta es ir a
+                    asignarle un perfil, y eso ocurre en el banco. */}
+                <Link
+                  href="/admin"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold underline underline-offset-4"
+                >
+                  Ver el banco de cuentas
+                  <ArrowRight aria-hidden className="size-3.5" strokeWidth={3} />
+                </Link>
+              </div>
             )}
 
             <SubmitButton />

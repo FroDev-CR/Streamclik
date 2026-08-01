@@ -61,6 +61,57 @@ export interface QueryResult<T> {
   error: string | null;
 }
 
+export interface InboundEmailRow {
+  id: string;
+  fromAddress: string;
+  toAddress: string;
+  subject: string | null;
+  parseStatus: 'parsed' | 'unmatched' | 'failed' | 'ignored';
+  receivedAt: string;
+  accountId: string | null;
+}
+
+/**
+ * Últimos correos que llegaron a los buzones de ingesta.
+ *
+ * No es un adorno de diagnóstico: hay correos legítimos que **no** contienen
+ * ningún código y que aun así el operador necesita ver. El caso concreto es
+ * cambiar la dirección de una cuenta de Netflix a un buzón de StreamClick:
+ * Netflix manda un enlace de confirmación, no un número, así que el parser lo
+ * marca como `unmatched` y no aparece en ninguna otra pantalla. Sin esta vista,
+ * ese correo se recibe correctamente y se pierde de vista.
+ *
+ * La política RLS de `inbound_emails` es sólo para administradores: el cuerpo de
+ * los correos no debe llegar al cliente final.
+ */
+export async function getRecentInboundEmails(limit = 15): Promise<QueryResult<InboundEmailRow[]>> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from('inbound_emails')
+    .select('id, from_address, to_address, subject, parse_status, received_at, account_id')
+    .order('received_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    logger.error('No se pudieron leer los correos entrantes', { error: error.message });
+    return { data: [], error: error.message };
+  }
+
+  return {
+    data: (data ?? []).map((row) => ({
+      id: row.id,
+      fromAddress: row.from_address,
+      toAddress: row.to_address,
+      subject: row.subject,
+      parseStatus: row.parse_status,
+      receivedAt: row.received_at,
+      accountId: row.account_id,
+    })),
+    error: null,
+  };
+}
+
 export async function getServiceOptions(): Promise<QueryResult<AdminServiceOption[]>> {
   const supabase = await createSupabaseServerClient();
 

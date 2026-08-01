@@ -185,3 +185,68 @@ export async function revokeAssignmentAction(formData: FormData): Promise<void> 
   revalidatePath('/admin');
   revalidatePath('/dashboard');
 }
+
+// -----------------------------------------------------------------------------
+
+/**
+ * Eliminar una cuenta del banco.
+ *
+ * Es **irreversible** y arrastra por clave foránea en cascada:
+ *
+ *   · `account_profiles`     → se borran los perfiles
+ *   · `profile_assignments`  → se borran las asignaciones (y con ellas el acceso)
+ *   · `verification_pins`    → se borra el historial de códigos
+ *
+ * `inbound_emails` se conserva con `account_id` a null: son el registro de qué
+ * llegó al buzón y sirven para diagnosticar aunque la cuenta ya no exista.
+ *
+ * No se comprueba aquí si hay asignaciones activas. La decisión de cortarle el
+ * acceso a un cliente es del operador, no de esta función; lo que sí hace la
+ * interfaz es decirle exactamente a cuántos afecta antes de confirmar.
+ */
+export async function deleteAccountAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireAdmin();
+
+  const accountId = String(formData.get('accountId') ?? '');
+
+  if (!z.string().uuid().safeParse(accountId).success) {
+    return { error: 'Cuenta no válida' };
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  // Se lee la etiqueta antes de borrar para poder nombrarla en el mensaje de
+  // confirmación: después ya no existe.
+  const { data: cuenta } = await supabase
+    .from('streaming_accounts')
+    .select('label')
+    .eq('id', accountId)
+    .maybeSingle();
+
+  const { error } = await supabase.from('streaming_accounts').delete().eq('id', accountId);
+
+  if (error) {
+    logger.error('Fallo al eliminar la cuenta', { accountId, error: error.message });
+    return { error: 'No se pudo eliminar la cuenta' };
+  }
+
+  // Queda registrado quién borró qué: es una acción destructiva y sin rastro
+  // sería imposible explicar después por qué un cliente perdió el acceso.
+  await supabase.from('audit_logs').insert({
+    actor_id: admin.id,
+    action: 'account.deleted',
+    entity_type: 'streaming_account',
+    entity_id: accountId,
+    metadata: { label: cuenta?.label ?? null },
+  });
+
+  logger.info('Cuenta eliminada', { accountId, actor: admin.id });
+
+  revalidatePath('/admin');
+  revalidatePath('/dashboard');
+
+  return { success: `Cuenta "${cuenta?.label ?? accountId}" eliminada` };
+}

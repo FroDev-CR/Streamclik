@@ -577,5 +577,6 @@ Imprime un `curl` firmado. El fixture ya apunta a `netflix1@streamclick.xyz`.
 | [`docs/05-integraciones-futuras.md`](docs/05-integraciones-futuras.md) | WhatsApp, Telegram, push |
 | [`docs/06-despliegue.md`](docs/06-despliegue.md) | Runbook de despliegue completo |
 | [`docs/07-correo-entrante.md`](docs/07-correo-entrante.md) | **Correo entrante — el paso actual** |
+| [`docs/08-migrar-cuenta-netflix.md`](docs/08-migrar-cuenta-netflix.md) | Pasar una cuenta de Netflix a un buzón del dominio |
 | [`docs/adr/`](docs/adr/) | Por qué se tomó cada decisión |
 | [`workers/inbound-email/README.md`](workers/inbound-email/README.md) | Desplegar y depurar el Worker |
