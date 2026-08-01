@@ -26,34 +26,43 @@ derecha (o al final de la página en móvil) aparece **Account ID**. Cópialo.
 
 > También está en la URL: `dash.cloudflare.com/<ESTO-ES-EL-ACCOUNT-ID>/...`
 
-### 3. El secreto compartido
+### 3. El secreto compartido — **opcional**
 
-Es el mismo valor que ya tiene Vercel. Para verlo desde el móvil:
+Los secretos de un Worker de Cloudflare **persisten entre despliegues**. Si el
+Worker ya se publicó alguna vez con `wrangler secret put`, el valor sigue ahí y
+el workflow lo conserva: no hace falta configurar nada.
+
+Sólo tiene sentido añadirlo a GitHub si quieres que el despliegue mantenga
+sincronizados Cloudflare y Vercel de forma automática, o si nunca llegaste a
+configurarlo. Para verlo desde el móvil:
 
 [vercel.com](https://vercel.com) → proyecto `streamclik` → **Settings** →
 **Environment Variables** → busca `INBOUND_EMAIL_WEBHOOK_SECRET` → icono del ojo
 para revelarlo.
 
-> Tiene que ser **exactamente el mismo**. Si Cloudflare y Vercel tienen secretos
-> distintos, el webhook responde 401 a todo y ningún código llega jamás. Es el
-> fallo más común de esta integración.
+> Si lo añades, tiene que ser **exactamente el mismo** que en Vercel. Con
+> secretos distintos el webhook responde 401 a todo y ningún código llega jamás:
+> es el fallo más común de esta integración.
 
-### 4. Guardar los tres en GitHub
+### 4. Guardar en GitHub
 
 En [github.com/FroDev-CR/Streamclik](https://github.com/FroDev-CR/Streamclik):
 
 **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
 
-Crea estos tres:
-
-| Nombre | Valor |
-| --- | --- |
-| `CLOUDFLARE_API_TOKEN` | El token del paso 1 |
-| `CLOUDFLARE_ACCOUNT_ID` | El Account ID del paso 2 |
-| `INBOUND_EMAIL_WEBHOOK_SECRET` | El secreto del paso 3 |
+| Nombre | ¿Obligatorio? | Valor |
+| --- | --- | --- |
+| `CLOUDFLARE_API_TOKEN` | Sí | El token del paso 1 |
+| `CLOUDFLARE_ACCOUNT_ID` | Sí | El Account ID del paso 2 |
+| `INBOUND_EMAIL_WEBHOOK_SECRET` | No | El secreto del paso 3 |
 
 > En el móvil conviene usar el navegador en **modo escritorio**: la app de GitHub
 > no permite gestionar secretos ni lanzar workflows.
+
+⚠️ **Pega los tokens directamente en el campo de GitHub.** No pasan por un chat,
+ni por notas, ni por un correo: un token filtrado da acceso de edición a tus
+Workers. Si alguno se expone, revócalo en Cloudflare y crea otro — cuesta treinta
+segundos.
 
 ## Desplegar
 

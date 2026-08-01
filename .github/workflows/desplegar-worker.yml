@@ -36,6 +36,12 @@ jobs:
     name: Publicar en Cloudflare
     runs-on: ubuntu-latest
 
+    # El secreto se expone como variable de entorno del job porque el contexto
+    # `secrets` NO está disponible en los `if:` de los pasos, y `env` sí. Es lo
+    # que permite decidir más abajo si hay que sincronizarlo o dejarlo intacto.
+    env:
+      SECRETO_WEBHOOK: ${{ secrets.INBOUND_EMAIL_WEBHOOK_SECRET }}
+
     steps:
       - name: Descargar el repositorio
         uses: actions/checkout@v4
@@ -49,24 +55,51 @@ jobs:
         working-directory: workers/inbound-email
         run: npm install --no-audit --no-fund
 
-      - name: Desplegar
+      # ---------------------------------------------------------------------
+      # Dos variantes del mismo despliegue, según haya o no secreto en GitHub.
+      #
+      # Los secretos de un Worker de Cloudflare **persisten entre despliegues**:
+      # si el Worker ya se publicó una vez desde una terminal con
+      # `wrangler secret put`, el valor sigue ahí. Por eso configurar
+      # INBOUND_EMAIL_WEBHOOK_SECRET en GitHub es opcional.
+      #
+      # Y no es sólo comodidad: pasar la lista `secrets` con la variable vacía
+      # **sobrescribiría el secreto con una cadena vacía**. El webhook empezaría
+      # a responder 401 a todo y ningún código llegaría, sin ningún cambio de
+      # código que explicara la avería.
+      # ---------------------------------------------------------------------
+
+      - name: Desplegar y sincronizar el secreto
+        if: env.SECRETO_WEBHOOK != ''
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: workers/inbound-email
-          # Publica también el secreto compartido con la aplicación. Debe ser el
-          # MISMO valor que INBOUND_EMAIL_WEBHOOK_SECRET en Vercel: si difieren,
-          # el webhook responde 401 a todo y ningún código llega jamás.
+          # Debe ser el MISMO valor que en Vercel: si difieren, el webhook
+          # responde 401 a todo y ningún código llega jamás.
           secrets: |
             INBOUND_EMAIL_WEBHOOK_SECRET
         env:
           INBOUND_EMAIL_WEBHOOK_SECRET: ${{ secrets.INBOUND_EMAIL_WEBHOOK_SECRET }}
 
+      - name: Desplegar conservando el secreto ya configurado
+        if: env.SECRETO_WEBHOOK == ''
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: workers/inbound-email
+
       - name: Recordatorio
         run: |
           echo "Worker desplegado."
           echo ""
+          if [ -z "$SECRETO_WEBHOOK" ]; then
+            echo "INBOUND_EMAIL_WEBHOOK_SECRET no está en GitHub:"
+            echo "se ha conservado el que ya tuviera el Worker en Cloudflare."
+            echo ""
+          fi
           echo "El enrutamiento NO se configura aquí: revisa que en Cloudflare"
           echo "  Email → Email Routing → Routes → Catch-all"
           echo "siga apuntando a 'streamclick-inbound-email'."
