@@ -5,7 +5,7 @@
 > proyecto: qué es, qué está construido, qué decisiones se tomaron y por qué, qué
 > trampas ya se pisaron y qué queda pendiente.
 >
-> Última actualización: 2026-07-31 · Commit `28aa647`
+> Última actualización: 2026-08-01 · Commit `6f294d9`+
 
 ---
 
@@ -35,15 +35,22 @@ desarrollo va aquí, nunca a la rama principal sin permiso explícito.
 | Aspecto | Estado |
 | --- | --- |
 | Código del MVP | ✅ Completo |
-| Tests | ✅ 32 en verde (4 archivos) |
+| Tests | ✅ 37 en verde (5 archivos) |
 | Typecheck | ✅ `tsc --noEmit` sin errores |
 | Lint | ✅ Sin avisos |
 | Build de producción | ✅ Correcto sin variables de entorno |
 | **Proyecto de Supabase** | ✅ **Creado y con el esquema instalado** |
 | **Desplegado en Vercel** | ✅ **En producción** |
-| **Dominio `streamclick.xyz`** | ⏳ **Añadido, pendiente de verificar** |
+| **Dominio `streamclick.xyz`** | ✅ **Resuelto y apuntando a Vercel** |
+| **DNS en Cloudflare** | ✅ **Autoritativo** (`dell`/`sage.ns.cloudflare.com`) |
+| **Email Routing (MX)** | ✅ **Activo** (`route1/2/3.mx.cloudflare.net`) |
+| **Catch-all → Worker** | ❌ **No configurado** |
 | **Email Worker desplegado** | ❌ **No** |
 | **Primer admin** | ❌ **No** |
+
+Los tres estados de dominio y correo están **verificados por consulta DNS real**
+el 2026-08-01, no dados por buenos: el dominio ya puede recibir correo sin que
+rebote. Lo que falta es decirle a Cloudflare qué hacer con él.
 
 ### Coordenadas de producción
 
@@ -89,35 +96,48 @@ Supabase en el panel de Clerk, para que el JWT lleve el claim
 política concede nada, y **todo devuelve vacío sin ningún error visible**. Si
 alguien reporta "entro pero no veo nada", empezar por ahí.
 
-### Lo que falta y por qué está bloqueado
+### Lo que falta
 
-1. **Verificar el dominio.** `streamclick.xyz` está registrado en la cuenta de
-   Vercel de un amigo, no en la del usuario. Vercel pide un TXT de propiedad:
+El dominio y el DNS **ya están resueltos** (eran los dos puntos lentos). Queda la
+última milla, toda ella en paneles externos. Guía detallada en
+[`docs/07-correo-entrante.md`](docs/07-correo-entrante.md).
 
-   | Tipo | Nombre | Valor |
-   | --- | --- | --- |
-   | TXT | `_vercel` | `vc-domain-verify=streamclick.xyz,723850ab83d9330a5d98` |
-   | A | `@` | `216.150.1.1` |
+1. **Desplegar el Worker** — `cd workers/inbound-email && npx wrangler deploy`,
+   con `wrangler secret put INBOUND_EMAIL_WEBHOOK_SECRET` usando **el mismo valor
+   exacto** que hay en Vercel.
+2. **Catch-all → Worker** — Cloudflare → Email → Email Routing → Routes.
+3. **Primer admin** — registrarse y promover con un `UPDATE` en SQL.
+4. **Crear la cuenta** en `/admin` con `inbox_email = netflix1@streamclick.xyz`.
 
-2. **Mover el DNS a Cloudflare.** No es opcional: Email Routing sólo funciona si
-   Cloudflare es el DNS autoritativo del dominio, y sin correo entrante el
-   producto no hace lo único que justifica su existencia. El amigo tiene que
-   cambiar los nameservers en su panel de Vercel.
+Para saber en qué punto está la cadena en cualquier momento:
 
-3. **Worker de correo y primer admin.** Dependen de los dos puntos anteriores.
+```bash
+export $(grep INBOUND_EMAIL_WEBHOOK_SECRET .env.local | xargs)
+npm run diagnostico:correo
+```
+
+Comprueba DNS, MX, salud de la app, que el webhook no esté tras Clerk, que se
+exija la firma y hace un envío firmado real. Dice **cuál** de los seis eslabones
+falla, que es justo lo que no se puede deducir del síntoma ("no llega ningún
+código" es idéntico para casi todas las causas).
 
 ### Commits
 
 ```
+6f294d9  Ampliar la landing y unificar la tipografía con el logotipo
+dcf2bde  Ampliar la landing y unificar la tipografía con el logotipo
+831d9b7  Rediseñar la identidad: logotipo, fondo animado y borde luminoso
+9ff676f  Migrar la autenticación a Clerk conservando RLS
+a9a7291  Actualizar el traspaso con el estado real del despliegue
 28aa647  Normalizar los finales de línea con .gitattributes
 31b62a3  Añadir HANDOFF.md para arrancar sesiones nuevas en frío
 a255eb1  Añadir el paquete de despliegue: correo entrante, SQL de instalación y runbook
 635f6fc  Implementar StreamClick: SaaS de cuentas compartidas de streaming
 ```
 
-**`28aa647` no está empujado al remoto.** Sin `.gitattributes`, un clon en
-Windows convierte el árbol entero a CRLF y `git status` marca los 113 archivos
-como modificados sin un solo cambio real de contenido.
+`.gitattributes` normaliza los finales de línea: sin él, un clon en Windows
+convierte el árbol entero a CRLF y `git status` marca los 113 archivos como
+modificados sin un solo cambio real de contenido.
 
 ---
 
@@ -131,7 +151,8 @@ como modificados sin un solo cambio real de contenido.
 | TypeScript | 5.7 | `strict` + `noUncheckedIndexedAccess` |
 | Tailwind CSS | 4.3.3 | v4: sin `tailwind.config.js`, el tema va en `globals.css` |
 | `@supabase/supabase-js` | 2.111.0 | |
-| `@supabase/ssr` | **0.12.4** | ⚠️ **No bajar de 0.12** — ver §6.1 |
+| `@supabase/ssr` | 0.12.4 | ⚠️ **Ya no se importa** desde la migración a Clerk. Dependencia muerta, candidata a eliminar. Si se reintroduce, no bajar de 0.12 (§6.1) |
+| `@clerk/nextjs` | — | Autenticación (ADR-0008) |
 | Vitest | 2.1.9 | |
 
 ---
@@ -141,10 +162,10 @@ como modificados sin un solo cambio real de contenido.
 ```
 src/
 ├── app/                        # Rutas. Las páginas son delgadas por diseño.
-│   ├── (auth)/                 # login · registro · recuperar
+│   ├── (auth)/                 # login/[[...rest]] · registro/[[...rest]] (Clerk)
 │   ├── (dashboard)/            # dashboard · cuenta/[id] · admin
 │   │   └── layout.tsx          # ⚠️ export const dynamic = 'force-dynamic'
-│   ├── auth/confirm/route.ts   # canjea el token del correo por sesión
+│   ├── catalogo/               # página pública de catálogo
 │   └── api/webhooks/inbound-email/route.ts   # ⭐ entrada del pipeline
 │
 ├── core/                       # ⚠️ NO importar Next ni Supabase aquí
@@ -154,7 +175,7 @@ src/
 │   └── use-cases/              # ProcessInboundEmail, AssignProfile, RevokeAssignment
 │
 ├── infrastructure/
-│   ├── supabase/               # server.ts · client.ts · admin.ts · middleware.ts · database.types.ts
+│   ├── supabase/               # server.ts · client.ts · admin.ts · database.types.ts
 │   ├── email/parsers/          # ⭐ netflix.parser.ts — el núcleo del valor
 │   ├── email/providers/        # verificación HMAC + normalización por proveedor
 │   ├── repositories/           # implementaciones sobre Supabase
@@ -162,7 +183,7 @@ src/
 │   └── container.ts            # composition root — única fábrica de dependencias
 │
 ├── features/                   # UI por módulo vertical: auth · accounts · pins · admin
-├── components/ui/              # design system: Button, Card, Badge, Input
+├── components/                 # logo · shader-background · ui/ (Button, Card, Badge…)
 └── lib/                        # env (zod) · logger · utils · rate-limit
 
 supabase/migrations/            # 8 migraciones — fuente de verdad del esquema
@@ -235,6 +256,11 @@ Esta sección es la más valiosa de todo el documento. Cada punto costó un cicl
 depuración.
 
 ### 6.1 `@supabase/ssr` < 0.12 rompe TODOS los tipos
+
+> **Histórico:** desde la migración a Clerk, `@supabase/ssr` ya no se importa en
+> ninguna parte (los clientes usan `createClient` de `supabase-js` con
+> `accessToken`). Se conserva esta entrada porque el síntoma —todo resuelto como
+> `never`— es idéntico al de §6.2, que **sí** sigue vigente.
 
 Con `@supabase/ssr` 0.5.2 y `supabase-js` 2.111, `createServerClient<Database>()`
 devuelve un cliente cuyo schema se resuelve como `never`. El síntoma son decenas
@@ -321,11 +347,33 @@ imported from a Client Component module"*.
 - `cookies()`, `params` y `searchParams` son **promesas** — hay que hacer `await`.
 - `redirect()` lanza `NEXT_REDIRECT` por diseño: **llamarlo siempre fuera del
   `try`**, o el `catch` se lo traga y el formulario no navega.
-- El middleware debe devolver **el mismo objeto `NextResponse`** que recibió el
-  cliente de Supabase, o se pierde el token refrescado (síntoma: sesión que se
-  cae cada hora, invisible en desarrollo).
-- Usar `getUser()` y no `getSession()` en el middleware: el segundo no verifica la
-  firma de la cookie contra el servidor de Auth.
+> Dos avisos de esta lista **dejaron de aplicar** al migrar a Clerk: el de
+> devolver el mismo `NextResponse` en el middleware y el de `getUser()` frente a
+> `getSession()`. Ambos eran del baile de cookies de Supabase Auth, que ya no
+> existe. Se dejan mencionados para que nadie los "restaure" al ver código
+> antiguo en un tutorial.
+
+### 6.10 El JWT de Clerk necesita el claim `role: "authenticated"`
+
+Sin ese claim, Postgres atiende la petición como `anon`, **ninguna política RLS
+concede nada y todo devuelve vacío sin ningún error visible**. No hay excepción,
+no hay log, no hay 403: simplemente cero filas en todas las pantallas.
+
+Es el modo de fallo más desconcertante de la integración con Clerk. Si alguien
+reporta *"entro pero no veo nada"*, empezar siempre por aquí y no por RLS.
+
+Se configura activando la integración con Supabase en el panel de Clerk.
+
+### 6.11 El webhook debe quedar FUERA del middleware de Clerk
+
+Si `clerkMiddleware` intercepta `/api/webhooks/inbound-email`, el Worker de
+Cloudflare recibe una **redirección al login** en lugar de un 200. Los correos
+entran, Cloudflare los da por entregados y **ningún código llega jamás** — sin
+que ningún test del pipeline lo detecte, porque el pipeline en sí sigue perfecto.
+
+Lo cubre `tests/middleware-matcher.test.ts`, que lee el matcher del archivo
+fuente y comprueba que no case con esa ruta. Si se edita el matcher de
+`src/middleware.ts`, ese test es la red de seguridad.
 
 ---
 
@@ -448,11 +496,12 @@ npm run dev        # desarrollo
 npm run build      # build de producción
 npm run typecheck  # tsc --noEmit
 npm run lint       # ESLint
-npm test           # Vitest (32 tests)
+npm test           # Vitest (37 tests)
 npm run db:push    # aplicar migraciones (requiere CLI enlazada)
 npm run db:types   # regenerar database.types.ts desde el esquema real
 
-node scripts/generate-secrets.mjs   # los dos secretos criptográficos
+npm run diagnostico:correo          # diagnostica los 6 eslabones del correo
+npm run secretos                    # genera los dos secretos criptográficos
 node scripts/build-setup-sql.mjs    # regenera supabase/setup.sql
 ```
 
@@ -490,6 +539,7 @@ Imprime un `curl` firmado. El fixture ya apunta a `netflix1@streamclick.xyz`.
 | [`docs/03-flujo-autenticacion.md`](docs/03-flujo-autenticacion.md) | Registro, login, middleware |
 | [`docs/04-flujo-email-a-pin.md`](docs/04-flujo-email-a-pin.md) | El pipeline y sus modos de fallo |
 | [`docs/05-integraciones-futuras.md`](docs/05-integraciones-futuras.md) | WhatsApp, Telegram, push |
-| [`docs/06-despliegue.md`](docs/06-despliegue.md) | **Runbook de despliegue — el paso actual** |
+| [`docs/06-despliegue.md`](docs/06-despliegue.md) | Runbook de despliegue completo |
+| [`docs/07-correo-entrante.md`](docs/07-correo-entrante.md) | **Correo entrante — el paso actual** |
 | [`docs/adr/`](docs/adr/) | Por qué se tomó cada decisión |
 | [`workers/inbound-email/README.md`](workers/inbound-email/README.md) | Desplegar y depurar el Worker |

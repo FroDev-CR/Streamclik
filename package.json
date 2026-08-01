@@ -16,7 +16,9 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"docs/**/*.md\"",
     "db:reset": "supabase db reset",
     "db:push": "supabase db push",
-    "db:types": "supabase gen types typescript --linked > src/infrastructure/supabase/database.types.ts"
+    "db:types": "supabase gen types typescript --linked > src/infrastructure/supabase/database.types.ts",
+    "diagnostico:correo": "node scripts/diagnostico-correo.mjs",
+    "secretos": "node scripts/generate-secrets.mjs"
   },
   "dependencies": {
     "@clerk/localizations": "^3.30.0",
