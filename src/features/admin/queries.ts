@@ -262,3 +262,171 @@ export async function getAdminAccounts(): Promise<QueryResult<AdminAccountRow[]>
     error: null,
   };
 }
+
+// -----------------------------------------------------------------------------
+
+export interface AdminClientRow {
+  id: string;
+  email: string;
+  fullName: string | null;
+  phone: string | null;
+  createdAt: string;
+  suscripciones: Array<{
+    assignmentId: string;
+    serviceName: string;
+    brandColor: string;
+    accountLabel: string;
+    profileLabel: string;
+    expiresAt: string | null;
+  }>;
+}
+
+/**
+ * Todos los clientes con lo que tienen contratado.
+ *
+ * Responde a la pregunta inversa del banco: el banco parte del inventario y
+ * pregunta quién lo ocupa; esto parte de la persona y pregunta qué tiene. Son
+ * las dos formas de mirar el mismo dato, y el operador necesita ambas —una para
+ * vender el hueco libre, otra para atender a quien escribe.
+ *
+ * ⚠️ El embed nombra la clave foránea (`profile_assignments!…_user_id_fkey`)
+ * porque `profile_assignments` apunta dos veces a `user_profiles` (`user_id` y
+ * `assigned_by`). Sin cualificar, PostgREST rechaza la consulta entera con
+ * PGRST201 y la lista vuelve vacía.
+ */
+export async function getAdminClients(): Promise<QueryResult<AdminClientRow[]>> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select(
+      `
+      id, email, full_name, phone, created_at,
+      profile_assignments!profile_assignments_user_id_fkey (
+        id, status, expires_at,
+        account_profiles (
+          label,
+          streaming_accounts ( label, streaming_services ( name, brand_color ) )
+        )
+      )
+    `,
+    )
+    .eq('role', 'client')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    logger.error('No se pudo leer la lista de clientes', {
+      error: error.message,
+      code: error.code,
+    });
+    return { data: [], error: error.message };
+  }
+
+  type Fila = {
+    id: string;
+    email: string;
+    full_name: string | null;
+    phone: string | null;
+    created_at: string;
+    profile_assignments: Array<{
+      id: string;
+      status: AssignmentStatus;
+      expires_at: string | null;
+      account_profiles: {
+        label: string;
+        streaming_accounts: {
+          label: string;
+          streaming_services: { name: string; brand_color: string } | null;
+        } | null;
+      } | null;
+    }>;
+  };
+
+  return {
+    data: ((data ?? []) as unknown as Fila[]).map((fila) => ({
+      id: fila.id,
+      email: fila.email,
+      fullName: fila.full_name,
+      phone: fila.phone,
+      createdAt: fila.created_at,
+      suscripciones: fila.profile_assignments
+        // Sólo lo vigente: el historial de asignaciones revocadas es útil para
+        // auditar, pero aquí la pregunta es qué tiene contratado ahora.
+        .filter((asignacion) => asignacion.status === 'active')
+        .map((asignacion) => ({
+          assignmentId: asignacion.id,
+          serviceName:
+            asignacion.account_profiles?.streaming_accounts?.streaming_services?.name ?? 'Servicio',
+          brandColor:
+            asignacion.account_profiles?.streaming_accounts?.streaming_services?.brand_color ??
+            '#666666',
+          accountLabel: asignacion.account_profiles?.streaming_accounts?.label ?? '—',
+          profileLabel: asignacion.account_profiles?.label ?? '—',
+          expiresAt: asignacion.expires_at,
+        })),
+    })),
+    error: null,
+  };
+}
+
+// -----------------------------------------------------------------------------
+
+export interface AdminPlatformRow {
+  id: string;
+  slug: string;
+  name: string;
+  brandColor: string;
+  priceAmount: number;
+  tagline: string | null;
+  isActive: boolean;
+  accountCount: number;
+}
+
+/**
+ * Plataformas del catálogo, incluidas las ocultas.
+ *
+ * A diferencia de `getServiceOptions()`, aquí NO se filtra por `is_active`: esta
+ * pantalla existe justamente para volver a mostrar una plataforma que se ocultó.
+ *
+ * El recuento de cuentas se trae para poder avisar de lo que arrastra: ocultar
+ * una plataforma con cuentas activas deja de venderla, pero los clientes que ya
+ * la tienen conservan su acceso.
+ */
+export async function getAdminPlatforms(): Promise<QueryResult<AdminPlatformRow[]>> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from('streaming_services')
+    .select('id, slug, name, brand_color, price_amount, tagline, is_active, streaming_accounts(id)')
+    .order('name');
+
+  if (error) {
+    logger.error('No se pudieron leer las plataformas', { error: error.message });
+    return { data: [], error: error.message };
+  }
+
+  type Fila = {
+    id: string;
+    slug: string;
+    name: string;
+    brand_color: string;
+    price_amount: number;
+    tagline: string | null;
+    is_active: boolean;
+    streaming_accounts: Array<{ id: string }>;
+  };
+
+  return {
+    data: ((data ?? []) as unknown as Fila[]).map((fila) => ({
+      id: fila.id,
+      slug: fila.slug,
+      name: fila.name,
+      brandColor: fila.brand_color,
+      priceAmount: Number(fila.price_amount),
+      tagline: fila.tagline,
+      isActive: fila.is_active,
+      accountCount: fila.streaming_accounts?.length ?? 0,
+    })),
+    error: null,
+  };
+}

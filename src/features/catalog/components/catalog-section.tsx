@@ -15,9 +15,29 @@ import { formatPrice, type CatalogItem } from '../queries';
  * hace creíble el resto de la página; inventarlo se nota a la primera compra.
  */
 export function CatalogSection({ items }: { items: CatalogItem[] }) {
-  // Sin catálogo la sección desaparece entera en lugar de dejar un hueco con un
-  // titular y nada debajo.
-  if (items.length === 0) return null;
+  // Sin datos la sección NO desaparece: se muestra con un estado de espera.
+  //
+  // Ocultarla entera fue un error. Si la función `catalogo_publico()` todavía no
+  // está creada en la base de datos, la portada quedaba exactamente igual que
+  // antes y no había forma de saber si el problema era la migración, el
+  // despliegue o el sitio donde se insertó la sección. Es el mismo fallo
+  // silencioso que ya costó un ciclo de depuración en el panel de administración.
+  if (items.length === 0) {
+    return (
+      <section className="catalogo-section" id="catalogo">
+        <div className="landing-shell">
+          <header className="catalogo-header">
+            <p className="landing-section-label">02 / Catálogo</p>
+            <h2>Muy pronto</h2>
+            <p className="catalogo-intro">
+              Estamos preparando los perfiles disponibles. Escríbenos y te avisamos en cuanto
+              abramos cupos.
+            </p>
+          </header>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="catalogo-section" id="catalogo">

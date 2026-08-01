@@ -203,20 +203,34 @@ export function AccountBank({
 }) {
   const [state, formAction] = useActionState<ActionState, FormData>(assignProfileAction, {});
   const [busqueda, setBusqueda] = useState('');
+  const [plataforma, setPlataforma] = useState('');
+
+  // Las plataformas del filtro salen del propio inventario, no de una lista
+  // fija: así aparecen solas al añadir un servicio nuevo y nunca se ofrece
+  // filtrar por algo de lo que no hay ni una cuenta.
+  const plataformas = useMemo(
+    () => [...new Set(accounts.map((cuenta) => cuenta.serviceName))].sort(),
+    [accounts],
+  );
 
   // El filtro es en cliente porque el banco cabe entero en memoria: son decenas
   // de cuentas, no miles. Ir al servidor por cada tecla sólo añadiría latencia.
   const visibles = useMemo(() => {
     const termino = busqueda.trim().toLowerCase();
-    if (!termino) return accounts;
 
-    return accounts.filter(
+    const porPlataforma = plataforma
+      ? accounts.filter((cuenta) => cuenta.serviceName === plataforma)
+      : accounts;
+
+    if (!termino) return porPlataforma;
+
+    return porPlataforma.filter(
       (cuenta) =>
         cuenta.label.toLowerCase().includes(termino) ||
         cuenta.inboxEmail.toLowerCase().includes(termino) ||
         cuenta.serviceName.toLowerCase().includes(termino),
     );
-  }, [accounts, busqueda]);
+  }, [accounts, busqueda, plataforma]);
 
   if (accounts.length === 0) {
     return (
@@ -238,27 +252,46 @@ export function AccountBank({
     <div className="flex flex-col gap-5">
       {/* El buscador aparece sólo cuando hay bastantes cuentas: con tres, un
           campo de búsqueda es ruido que ocupa sitio. */}
-      {accounts.length > 3 && (
-        <div className="relative">
-          <Search
-            aria-hidden
-            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--color-content-muted)]"
-            strokeWidth={2.5}
-          />
-          <Input
-            type="search"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por nombre, buzón o servicio…"
-            aria-label="Buscar cuentas"
-            className="pl-9"
-          />
+      {(accounts.length > 3 || plataformas.length > 1) && (
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="relative flex-1">
+            <Search
+              aria-hidden
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--color-content-muted)]"
+              strokeWidth={2.5}
+            />
+            <Input
+              type="search"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              placeholder="Buscar por nombre o buzón…"
+              aria-label="Buscar cuentas"
+              className="pl-9"
+            />
+          </div>
+
+          {plataformas.length > 1 && (
+            <div className="sm:w-52">
+              <Select
+                value={plataforma}
+                onChange={(e) => setPlataforma(e.target.value)}
+                aria-label="Filtrar por plataforma"
+              >
+                <option value="">Todas las plataformas</option>
+                {plataformas.map((nombre) => (
+                  <option key={nombre} value={nombre}>
+                    {nombre}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
         </div>
       )}
 
       {visibles.length === 0 && (
         <p className="py-6 text-center text-sm text-[var(--color-content-muted)]">
-          Ninguna cuenta coincide con «{busqueda}».
+          Ninguna cuenta coincide con los filtros aplicados.
         </p>
       )}
 

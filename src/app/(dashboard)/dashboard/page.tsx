@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { Inbox, Sparkles } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -8,6 +9,7 @@ import { SubscriptionCard } from '@/features/accounts/components/subscription-ca
 import { getMyAccounts } from '@/features/accounts/queries';
 import { requireUser } from '@/features/auth/session';
 import { getLatestPin } from '@/features/pins/queries';
+import { yaCompletoOnboarding } from '@/features/settings/onboarding';
 
 export const metadata: Metadata = { title: 'Mis suscripciones' };
 
@@ -25,6 +27,16 @@ export const metadata: Metadata = { title: 'Mis suscripciones' };
  */
 export default async function MisSuscripcionesPage() {
   const user = await requireUser('/dashboard');
+
+  // El operador no consume suscripciones: gestiona inventario. Su pantalla de
+  // inicio es el banco, y aquí sólo vería una tarjeta vacía permanente.
+  if (user.profile.role === 'admin') redirect('/admin');
+
+  // El WhatsApp se pide una sola vez, antes de dejar entrar: es el canal por el
+  // que se avisará y se cobrará, y pedirlo después de que el cliente ya esté
+  // usando la aplicación tiene mucha menos respuesta.
+  if (!yaCompletoOnboarding(user.profile)) redirect('/bienvenida');
+
   const accounts = await getMyAccounts(user.id);
 
   if (accounts.length === 0) {

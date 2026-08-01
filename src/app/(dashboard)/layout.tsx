@@ -1,6 +1,6 @@
 import { SignOutButton } from '@clerk/nextjs';
 import Link from 'next/link';
-import { Boxes, LayoutGrid, LogOut, Settings } from 'lucide-react';
+import { Boxes, LayoutGrid, LogOut, Settings, Users } from 'lucide-react';
 
 import { Logo } from '@/components/logo';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,25 @@ import { requireUser } from '@/features/auth/session';
 export const dynamic = 'force-dynamic';
 
 /**
+ * Navegación por rol.
+ *
+ * El operador y el cliente usan la misma aplicación pero no tienen nada que
+ * hacer en las pantallas del otro: el operador gestiona inventario y el cliente
+ * consume su suscripción. Mezclar ambas navegaciones obligaba al operador a
+ * pasar por «Mis suscripciones», una pantalla que para él siempre está vacía.
+ */
+const NAV_CLIENTE = [
+  { href: '/dashboard', icono: LayoutGrid, etiqueta: 'Mis suscripciones' },
+  { href: '/configuracion', icono: Settings, etiqueta: 'Configuración' },
+] as const;
+
+const NAV_ADMIN = [
+  { href: '/admin', icono: Boxes, etiqueta: 'Banco' },
+  { href: '/admin/clientes', icono: Users, etiqueta: 'Clientes' },
+  { href: '/admin/plataformas', icono: Settings, etiqueta: 'Plataformas' },
+] as const;
+
+/**
  * Layout del área privada.
  *
  * `requireUser()` aquí es **defensa en profundidad**, no la frontera de
@@ -31,6 +50,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const user = await requireUser();
   const isAdmin = user.profile.role === 'admin';
 
+  const enlaces = isAdmin ? NAV_ADMIN : NAV_CLIENTE;
+  const inicio = isAdmin ? '/admin' : '/dashboard';
+
   return (
     <div className="flex min-h-dvh flex-col bg-[var(--color-canvas)]">
       {/* La barra flota como una tarjeta con borde y sombra dura, igual que la
@@ -38,38 +60,22 @@ export default async function DashboardLayout({ children }: { children: React.Re
           parecer que se cambia de producto. */}
       <header className="sticky top-0 z-20 px-4 pt-4">
         <div className="mx-auto flex min-h-[60px] w-full max-w-5xl items-center justify-between gap-3 rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)]/90 px-4 shadow-[5px_5px_0_var(--color-border)] backdrop-blur">
-          <Link href="/dashboard" aria-label="StreamClick">
+          <Link href={inicio} aria-label="StreamClick">
             <Logo className="h-8 w-auto" priority />
           </Link>
 
+          {/* Los enlaces visibles dependen del rol, pero la protección real está
+              en `requireAdmin()` y en RLS: ocultar un enlace no impide escribir
+              la URL a mano. */}
           <nav className="flex items-center gap-1">
-            <Link href="/dashboard">
-              <Button variant="ghost" size="sm">
-                <LayoutGrid aria-hidden className="size-4" />
-                <span className="hidden sm:inline">Mis suscripciones</span>
-              </Button>
-            </Link>
-
-            <Link href="/configuracion">
-              <Button variant="ghost" size="sm">
-                <Settings aria-hidden className="size-4" />
-                <span className="hidden sm:inline">Configuración</span>
-              </Button>
-            </Link>
-
-            {/* El enlace sólo se muestra a administradores, pero la protección
-                real está en `requireAdmin()` y en RLS: ocultar un enlace no
-                impide escribir la URL a mano. */}
-            {isAdmin && (
-              <Link href="/admin">
+            {enlaces.map(({ href, icono: Icono, etiqueta }) => (
+              <Link key={href} href={href}>
                 <Button variant="ghost" size="sm">
-                  {/* Icono distinto del de Configuración: en móvil sólo se ve el
-                      icono, y dos engranajes seguidos no se distinguen. */}
-                  <Boxes aria-hidden className="size-4" />
-                  <span className="hidden sm:inline">Banco</span>
+                  <Icono aria-hidden className="size-4" />
+                  <span className="hidden sm:inline">{etiqueta}</span>
                 </Button>
               </Link>
-            )}
+            ))}
 
             {/* Clerk revoca la sesión en su servidor, no sólo borra la cookie
                 local: un token copiado antes del cierre deja de servir. Y sigue

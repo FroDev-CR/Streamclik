@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
 import { createSupabaseServerClient } from '@/infrastructure/supabase/server';
@@ -75,4 +76,91 @@ export async function updateProfileAction(
   revalidatePath('/dashboard');
 
   return { success: 'Cambios guardados' };
+}
+
+// -----------------------------------------------------------------------------
+
+const whatsappSchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .min(8, 'El número parece demasiado corto')
+    .max(30, 'El número parece demasiado largo'),
+});
+
+/**
+ * Guarda el WhatsApp del cliente tras registrarse.
+ *
+ * Se marca el paso como visto aunque el usuario lo omita, usando
+ * `notification_preferences.onboarded`. Sin esa marca no habría forma de
+ * distinguir «todavía no se lo hemos preguntado» de «se lo preguntamos y no
+ * quiso darlo», y le enseñaríamos la misma pantalla en cada visita.
+ */
+export async function saveWhatsappAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireUser('/bienvenida');
+  const supabase = await createSupabaseServerClient();
+
+  const preferencias = {
+    ...(typeof user.profile.notificationPreferences === 'object'
+      ? user.profile.notificationPreferences
+      : {}),
+    onboarded: true,
+  };
+
+  const parsed = whatsappSchema.safeParse({ phone: formData.get('phone') });
+
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      fieldErrors[String(issue.path[0] ?? 'form')] ??= issue.message;
+    }
+    return { fieldErrors };
+  }
+
+  const { error } = await supabase
+    .from('user_profiles')
+    .update({ phone: parsed.data.phone, notification_preferences: preferencias })
+    .eq('id', user.id);
+
+  if (error) {
+    logger.error('No se pudo guardar el WhatsApp', { error: error.message });
+    return { error: 'No se pudo guardar el número. Inténtalo de nuevo.' };
+  }
+
+  revalidatePath('/', 'layout');
+  // `redirect()` fuera de cualquier try: lanza NEXT_REDIRECT por diseño y un
+  // catch lo tragaría, dejando el formulario sin navegar y sin error visible.
+  redirect('/dashboard');
+}
+
+/**
+ * Omitir el paso del WhatsApp.
+ *
+ * Acción aparte y no una rama dentro de `saveWhatsappAction`: las acciones de
+ * `useActionState` reciben `(estadoPrevio, formData)` y no encajan como `action`
+ * de un `<form>` suelto, que sólo pasa `formData`.
+ *
+ * Se marca igualmente como visto para no repetir la pregunta en cada visita.
+ */
+export async function skipWhatsappAction(): Promise<void> {
+  const user = await requireUser('/bienvenida');
+  const supabase = await createSupabaseServerClient();
+
+  const preferencias = {
+    ...(typeof user.profile.notificationPreferences === 'object'
+      ? user.profile.notificationPreferences
+      : {}),
+    onboarded: true,
+  };
+
+  await supabase
+    .from('user_profiles')
+    .update({ notification_preferences: preferencias })
+    .eq('id', user.id);
+
+  revalidatePath('/', 'layout');
+  redirect('/dashboard');
 }

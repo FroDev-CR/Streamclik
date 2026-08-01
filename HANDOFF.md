@@ -170,10 +170,13 @@ modificados sin un solo cambio real de contenido.
 src/
 ├── app/                        # Rutas. Las páginas son delgadas por diseño.
 │   ├── (auth)/                 # login/[[...rest]] · registro/[[...rest]] (Clerk)
-│   ├── (dashboard)/            # dashboard · cuenta/[id] · admin
+│   ├── (dashboard)/            # área privada, navegación separada por rol
+│   │   ├── dashboard/          #   cliente: Mis suscripciones
+│   │   ├── configuracion/      #   cliente: sus datos
+│   │   ├── bienvenida/         #   cliente: captura del WhatsApp tras registrarse
+│   │   └── admin/              #   operador: banco · clientes · plataformas
 │   │   └── layout.tsx          # ⚠️ export const dynamic = 'force-dynamic'
 │   ├── catalogo/               # página pública de catálogo
-│   ├── configuracion/          # ajustes del cliente
 │   └── api/webhooks/inbound-email/route.ts   # ⭐ entrada del pipeline
 │
 ├── core/                       # ⚠️ NO importar Next ni Supabase aquí

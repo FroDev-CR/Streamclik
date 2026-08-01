@@ -250,3 +250,120 @@ export async function deleteAccountAction(
 
   return { success: `Cuenta "${cuenta?.label ?? accountId}" eliminada` };
 }
+
+// -----------------------------------------------------------------------------
+
+const plataformaSchema = z.object({
+  name: z.string().trim().min(2, 'Introduce el nombre de la plataforma').max(60),
+  slug: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(
+      /^[a-z0-9-]+$/,
+      'El identificador sólo admite minúsculas, números y guiones (ej. disney-plus)',
+    )
+    .max(40),
+  brandColor: z
+    .string()
+    .trim()
+    .regex(/^#[0-9a-fA-F]{6}$/, 'El color debe ser hexadecimal, como #E50914'),
+  priceAmount: z.coerce.number().min(0, 'El precio no puede ser negativo').max(1_000_000),
+  tagline: z
+    .string()
+    .trim()
+    .max(160)
+    .optional()
+    .transform((v) => (v ? v : null)),
+  senderDomains: z
+    .string()
+    .trim()
+    .optional()
+    .transform((v) =>
+      v
+        ? v
+            .split(',')
+            .map((dominio) => dominio.trim().toLowerCase())
+            .filter(Boolean)
+        : [],
+    ),
+});
+
+/**
+ * Alta de una plataforma en el catálogo.
+ *
+ * Aparece en la portada en cuanto se crea, pero **no** extrae códigos todavía:
+ * eso exige un parser propio en `src/infrastructure/email/parsers/`. Los correos
+ * de una plataforma sin parser se guardan como «sin código», que es honesto —no
+ * hay nada que extraer— pero conviene saberlo antes de venderla.
+ *
+ * `sender_domains` se guarda aunque el parser tipado no lo use todavía: es el
+ * dato que hará falta para escribirlo y es el momento en que se tiene a mano.
+ */
+export async function createPlatformAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireAdmin();
+
+  const parsed = plataformaSchema.safeParse({
+    name: formData.get('name'),
+    slug: formData.get('slug'),
+    brandColor: formData.get('brandColor'),
+    priceAmount: formData.get('priceAmount'),
+    tagline: formData.get('tagline'),
+    senderDomains: formData.get('senderDomains'),
+  });
+
+  if (!parsed.success) {
+    return { fieldErrors: toFieldErrors(parsed.error.issues) };
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  const { error } = await supabase.from('streaming_services').insert({
+    slug: parsed.data.slug,
+    name: parsed.data.name,
+    brand_color: parsed.data.brandColor,
+    price_amount: parsed.data.priceAmount,
+    tagline: parsed.data.tagline,
+    sender_domains: parsed.data.senderDomains,
+    is_active: true,
+  });
+
+  if (error) {
+    if (error.code === '23505') {
+      return { error: `Ya existe una plataforma con el identificador «${parsed.data.slug}»` };
+    }
+    logger.error('Fallo al crear la plataforma', { error: error.message });
+    return { error: 'No se pudo crear la plataforma' };
+  }
+
+  revalidatePath('/admin/plataformas');
+  revalidatePath('/admin/nueva');
+  // La portada la lee con revalidación por tiempo; se fuerza para que la
+  // plataforma nueva aparezca en el catálogo sin esperar cinco minutos.
+  revalidatePath('/');
+
+  return { success: `«${parsed.data.name}» añadida al catálogo` };
+}
+
+/** Activa o desactiva una plataforma sin borrarla. */
+export async function togglePlatformAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+
+  const id = String(formData.get('serviceId') ?? '');
+  const activar = String(formData.get('activar') ?? '') === 'true';
+
+  if (!z.string().uuid().safeParse(id).success) return;
+
+  const supabase = await createSupabaseServerClient();
+
+  // Desactivar en lugar de borrar: una plataforma con cuentas asociadas no puede
+  // eliminarse (`on delete restrict`), y aunque pudiera, se llevaría por delante
+  // el histórico. Ocultarla del catálogo es lo que se quiere el 99 % de las veces.
+  await supabase.from('streaming_services').update({ is_active: activar }).eq('id', id);
+
+  revalidatePath('/admin/plataformas');
+  revalidatePath('/');
+}
