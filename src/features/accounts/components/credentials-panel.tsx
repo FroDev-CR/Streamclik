@@ -50,8 +50,8 @@ function CopyableField({
   return (
     <div className="flex items-center justify-between gap-3 py-2.5">
       <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-xs text-[--color-content-subtle]">{label}</span>
-        <span className="truncate font-mono text-sm text-[--color-content]">
+        <span className="text-xs text-[var(--color-content-subtle)]">{label}</span>
+        <span className="truncate font-mono text-sm text-[var(--color-content)]">
           {revealed ? value : '•'.repeat(Math.min(value.length, 12))}
         </span>
       </div>
@@ -69,7 +69,7 @@ function CopyableField({
         )}
         <Button variant="ghost" size="sm" onClick={copy} aria-label={`Copiar ${label}`}>
           {copied ? (
-            <Check aria-hidden className="size-4 text-green-400" />
+            <Check aria-hidden className="size-4 text-[var(--color-success)]" />
           ) : (
             <Copy aria-hidden className="size-4" />
           )}
@@ -91,7 +91,7 @@ export function CredentialsPanel({
         <CardTitle>Datos de acceso</CardTitle>
       </CardHeader>
 
-      <CardContent className="divide-y divide-[--color-border]">
+      <CardContent className="divide-y divide-[var(--color-border)]">
         <CopyableField label="Correo de la cuenta" value={loginEmail} />
 
         {loginPassword ? (
@@ -99,15 +99,15 @@ export function CredentialsPanel({
         ) : (
           // Un fallo de descifrado no debe tumbar el resto de la pantalla: el
           // correo y el perfil siguen siendo útiles mientras se resuelve.
-          <p className="py-2.5 text-xs text-amber-400">
+          <p className="py-2.5 text-xs text-[var(--color-warning)]">
             No se pudo mostrar la contraseña. Contacta con soporte.
           </p>
         )}
 
         <div className="flex items-center justify-between gap-3 py-2.5">
           <div className="flex flex-col gap-0.5">
-            <span className="text-xs text-[--color-content-subtle]">Tu perfil</span>
-            <span className="text-sm text-[--color-content]">{profileLabel}</span>
+            <span className="text-xs text-[var(--color-content-subtle)]">Tu perfil</span>
+            <span className="text-sm text-[var(--color-content)]">{profileLabel}</span>
           </div>
         </div>
 

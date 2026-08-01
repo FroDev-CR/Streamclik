@@ -32,9 +32,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const isAdmin = user.profile.role === 'admin';
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-10 border-b border-[--color-border] bg-[--color-canvas]/85 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-4xl items-center justify-between gap-3 px-5">
+    <div className="flex min-h-dvh flex-col bg-[var(--color-canvas)]">
+      {/* La barra flota como una tarjeta con borde y sombra dura, igual que la
+          navegación de la portada: al pasar de la web pública al panel no debe
+          parecer que se cambia de producto. */}
+      <header className="sticky top-0 z-20 px-4 pt-4">
+        <div className="mx-auto flex min-h-[60px] w-full max-w-5xl items-center justify-between gap-3 rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-surface)]/90 px-4 shadow-[5px_5px_0_var(--color-border)] backdrop-blur">
           <Link href="/dashboard" aria-label="StreamClick">
             <Logo className="h-8 w-auto" priority />
           </Link>
@@ -72,7 +75,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-4xl flex-1 px-5 py-6">{children}</main>
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
     </div>
   );
 }

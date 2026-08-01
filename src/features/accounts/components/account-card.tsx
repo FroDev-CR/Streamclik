@@ -19,7 +19,7 @@ export function AccountCard({ account }: { account: AssignedAccount }) {
 
   return (
     <Link href={`/cuenta/${account.accountId}`} className="group block">
-      <Card className="flex items-center gap-4 p-4 transition-colors group-hover:border-[--color-border-strong]">
+      <Card className="flex items-center gap-4 p-4 transition-colors group-hover:border-[var(--color-border-strong)]">
         {/* Marca del servicio como franja de color: identifica Netflix frente a
             Disney+ de un vistazo cuando el cliente tenga varias cuentas. */}
         <span
@@ -30,14 +30,14 @@ export function AccountCard({ account }: { account: AssignedAccount }) {
 
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="truncate font-medium text-[--color-content]">
+            <span className="truncate font-medium text-[var(--color-content)]">
               {account.serviceName}
             </span>
             <Badge tone="neutral">{account.profileLabel}</Badge>
             {expiresSoon && <Badge tone="warning">Por vencer</Badge>}
           </div>
 
-          <span className="truncate text-xs text-[--color-content-subtle]">
+          <span className="truncate text-xs text-[var(--color-content-subtle)]">
             {account.expiresAt
               ? `Acceso hasta el ${formatDateTime(account.expiresAt)}`
               : 'Acceso sin fecha de vencimiento'}
@@ -46,7 +46,7 @@ export function AccountCard({ account }: { account: AssignedAccount }) {
 
         <ChevronRight
           aria-hidden
-          className="size-4 shrink-0 text-[--color-content-subtle] transition-transform group-hover:translate-x-0.5"
+          className="size-4 shrink-0 text-[var(--color-content-subtle)] transition-transform group-hover:translate-x-0.5"
         />
       </Card>
     </Link>

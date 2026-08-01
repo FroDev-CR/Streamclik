@@ -48,7 +48,7 @@ export function ShineBorder({
     <div
       style={{ '--border-radius': `${borderRadius}px` } as CSSProperties}
       className={cn(
-        'relative w-full rounded-[--border-radius] bg-[--color-surface] text-[--color-content]',
+        'relative w-full rounded-[var(--border-radius)] bg-[var(--color-surface)] text-[var(--color-content)]',
         className,
       )}
     >
@@ -67,8 +67,8 @@ export function ShineBorder({
           } as CSSProperties
         }
         className={
-          'pointer-events-none absolute inset-0 size-full rounded-[--border-radius] ' +
-          'p-[--border-width] will-change-[background-position] ' +
+          'pointer-events-none absolute inset-0 size-full rounded-[var(--border-radius)] ' +
+          'p-[var(--border-width)] will-change-[background-position] ' +
           '[background-image:--background-radial-gradient] [background-size:300%_300%] ' +
           '[mask:--mask-linear-gradient] [mask-composite:exclude] ' +
           '[-webkit-mask-composite:xor] ' +

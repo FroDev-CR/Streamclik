@@ -13,7 +13,7 @@ export default function NotFound() {
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-4 px-5 text-center">
       <h1 className="text-lg font-semibold">Página no encontrada</h1>
-      <p className="max-w-sm text-sm text-[--color-content-muted]">
+      <p className="max-w-sm text-sm text-[var(--color-content-muted)]">
         El contenido que buscas no existe o no tienes acceso a él.
       </p>
       <Link href="/dashboard">

@@ -37,7 +37,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#08090c',
+  // Debe seguir a `--color-canvas`: tiñe la barra del navegador en móvil, y con
+  // el valor oscuro anterior quedaba un marco negro alrededor de una interfaz
+  // crema.
+  themeColor: '#f4f1e8',
   width: 'device-width',
   initialScale: 1,
 };

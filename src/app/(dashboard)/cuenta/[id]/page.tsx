@@ -48,7 +48,7 @@ export default async function AccountDetailPage({
         </Link>
         <div>
           <h1 className="text-lg font-semibold">{account.serviceName}</h1>
-          <p className="text-xs text-[--color-content-subtle]">{account.profileLabel}</p>
+          <p className="text-xs text-[var(--color-content-subtle)]">{account.profileLabel}</p>
         </div>
       </div>
 

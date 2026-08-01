@@ -364,6 +364,42 @@ reporta *"entro pero no veo nada"*, empezar siempre por aquí y no por RLS.
 
 Se configura activando la integración con Supabase en el panel de Clerk.
 
+### 6.12 En Tailwind v4, `bg-[--var]` NO aplica ningún color
+
+`bg-[--color-accent]` compila sin quejarse y emite CSS **inválido**:
+
+```css
+background-color: --color-accent;   /* falta var(): el navegador lo descarta */
+```
+
+El resultado es un botón sin fondo, texto blanco sobre blanco e insignias
+invisibles. Ni el build ni el lint ni los tipos lo detectan, y en una interfaz
+oscura pasa desapercibido porque el fondo del contenedor ya era oscuro.
+
+La sintaxis correcta es **`bg-[var(--color-accent)]`** (o `bg-(--color-accent)`,
+la forma abreviada de v4). Todo el repositorio usa la primera. Al escribir clases
+nuevas con tokens, siempre con `var()` dentro.
+
+Se detectó al capturar el panel con Playwright: el botón "Crear cuenta" salía
+blanco cuando debía ser negro. **Merece la pena mirar la interfaz de verdad, no
+sólo comprobar que compila.**
+
+### 6.13 Un embed de PostgREST es ambiguo si hay dos claves foráneas
+
+`profile_assignments` apunta dos veces a `user_profiles` (`user_id` y
+`assigned_by`). Un embed sin cualificar falla con PGRST201 y **la consulta entera
+devuelve error**, no sólo esa rama:
+
+```ts
+user_profiles!profile_assignments_user_id_fkey ( email )   // ✅
+user_profiles ( email )                                     // ✖ ambiguo
+```
+
+Se agravaba porque las consultas hacían `const { data } = await …` y devolvían
+`[]` al fallar, convirtiendo un error explícito en una pantalla vacía. Ahora
+devuelven `{ data, error }` y el panel muestra el fallo. **No volver a descartar
+el error de una consulta.**
+
 ### 6.11 El webhook debe quedar FUERA del middleware de Clerk
 
 Si `clerkMiddleware` intercepta `/api/webhooks/inbound-email`, el Worker de

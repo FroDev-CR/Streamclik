@@ -27,9 +27,9 @@ export default async function DashboardPage() {
   if (accounts.length === 0) {
     return (
       <Card className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-        <Inbox aria-hidden className="size-8 text-[--color-content-subtle]" />
+        <Inbox aria-hidden className="size-8 text-[var(--color-content-subtle)]" />
         <h1 className="text-lg font-medium">Todavía no tienes cuentas asignadas</h1>
-        <p className="max-w-sm text-sm text-[--color-content-muted]">
+        <p className="max-w-sm text-sm text-[var(--color-content-muted)]">
           Cuando el administrador te asigne un perfil, aparecerá aquí junto con sus códigos de
           verificación.
         </p>
@@ -49,7 +49,7 @@ export default async function DashboardPage() {
         <h1 className="text-xl font-semibold">
           Hola{user.profile.fullName ? `, ${user.profile.fullName.split(' ')[0]}` : ''}
         </h1>
-        <p className="mt-1 text-sm text-[--color-content-muted]">
+        <p className="mt-1 text-sm text-[var(--color-content-muted)]">
           {accounts.length === 1
             ? 'Tienes 1 cuenta activa'
             : `Tienes ${accounts.length} cuentas activas`}
@@ -65,7 +65,7 @@ export default async function DashboardPage() {
       )}
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-[--color-content-muted]">Todas mis cuentas</h2>
+        <h2 className="text-sm font-medium text-[var(--color-content-muted)]">Todas mis cuentas</h2>
         <div className="grid gap-3">
           {accounts.map((account) => (
             <AccountCard key={account.assignmentId} account={account} />

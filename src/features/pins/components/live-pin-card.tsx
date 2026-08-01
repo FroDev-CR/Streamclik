@@ -64,19 +64,19 @@ export function LivePinCard({ accountId, accountLabel, initialPin }: LivePinCard
   const expired = pin ? isPinExpired(pin) : false;
 
   return (
-    <Card className={cn('overflow-hidden', justArrived && 'ring-1 ring-[--color-accent]')}>
+    <Card className={cn('overflow-hidden', justArrived && 'ring-1 ring-[var(--color-accent)]')}>
       <CardHeader className="flex-row items-center justify-between gap-3">
         <CardTitle className="truncate">{accountLabel}</CardTitle>
 
         {/* El estado de la conexión es información honesta: si el WebSocket está
             caído, el usuario debe saber que el código puede no aparecer solo. */}
         <span
-          className="flex items-center gap-1.5 text-xs text-[--color-content-subtle]"
+          className="flex items-center gap-1.5 text-xs text-[var(--color-content-subtle)]"
           title={isConnected ? 'Conectado en tiempo real' : 'Reconectando…'}
         >
           <Radio
             aria-hidden
-            className={cn('size-3.5', isConnected ? 'text-green-400' : 'text-amber-400')}
+            className={cn('size-3.5', isConnected ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]')}
           />
           <span className="hidden sm:inline">{isConnected ? 'En vivo' : 'Reconectando'}</span>
         </span>
@@ -85,10 +85,10 @@ export function LivePinCard({ accountId, accountLabel, initialPin }: LivePinCard
       <CardContent>
         {!pin ? (
           <div className="flex flex-col items-center gap-2 py-8 text-center">
-            <p className="text-sm text-[--color-content-muted]">
+            <p className="text-sm text-[var(--color-content-muted)]">
               Aún no hay ningún código para esta cuenta
             </p>
-            <p className="text-xs text-[--color-content-subtle]">
+            <p className="text-xs text-[var(--color-content-subtle)]">
               Solicítalo desde Netflix y aparecerá aquí automáticamente
             </p>
           </div>
@@ -96,7 +96,7 @@ export function LivePinCard({ accountId, accountLabel, initialPin }: LivePinCard
           <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone={expired ? 'neutral' : 'accent'}>{PIN_TYPE_LABELS[pin.codeType]}</Badge>
-              <span className="text-xs text-[--color-content-subtle]">
+              <span className="text-xs text-[var(--color-content-subtle)]">
                 {formatRelativeTime(pin.receivedAt)}
               </span>
             </div>
@@ -106,26 +106,29 @@ export function LivePinCard({ accountId, accountLabel, initialPin }: LivePinCard
               onClick={copyCode}
               aria-label={`Copiar el código ${pin.code.split('').join(' ')}`}
               className={cn(
-                'group flex items-center justify-between gap-4 rounded-xl border px-5 py-6 text-left transition-colors',
+                'group flex items-center justify-between gap-4 rounded-2xl border-[3px] border-[var(--color-border)] px-5 py-6 text-left',
+                'transition-[transform,box-shadow] duration-100',
                 expired
-                  ? 'border-[--color-border] bg-[--color-surface-raised]'
-                  : 'border-[--color-border-strong] bg-[--color-surface-raised] hover:border-[--color-accent]',
+                  ? 'bg-[var(--color-canvas)] shadow-[4px_4px_0_var(--color-border)]'
+                  : // Amarillo de marca para el código vigente: es el objeto que
+                    // el usuario vino a buscar y debe ganar a todo lo demás.
+                    'bg-[var(--color-brand-yellow)] shadow-[6px_6px_0_var(--color-border)] active:translate-x-[3px] active:translate-y-[3px] active:shadow-[2px_2px_0_var(--color-border)]',
                 justArrived && 'animate-pin-arrive',
               )}
             >
               <span
                 className={cn(
-                  'pin-display text-4xl font-semibold sm:text-5xl',
-                  expired ? 'text-[--color-content-subtle] line-through' : 'text-[--color-content]',
+                  'pin-display text-4xl font-black sm:text-5xl',
+                  expired ? 'text-[var(--color-content-subtle)] line-through' : 'text-[var(--color-content)]',
                 )}
               >
                 {pin.code}
               </span>
 
-              <span className="flex items-center gap-1.5 text-xs text-[--color-content-muted]">
+              <span className="flex items-center gap-1.5 text-xs text-[var(--color-content-muted)]">
                 {copied ? (
                   <>
-                    <Check aria-hidden className="size-4 text-green-400" /> Copiado
+                    <Check aria-hidden className="size-4 text-[var(--color-success)]" /> Copiado
                   </>
                 ) : (
                   <>
@@ -139,12 +142,12 @@ export function LivePinCard({ accountId, accountLabel, initialPin }: LivePinCard
                 código" cuando llegó uno hace 20 minutos, vuelve a pedirlo y
                 genera otro correo innecesario. */}
             {expired ? (
-              <p className="flex items-center gap-1.5 text-xs text-amber-400">
+              <p className="flex items-center gap-1.5 text-xs text-[var(--color-warning)]">
                 <ShieldAlert aria-hidden className="size-3.5" />
                 Este código ha caducado. Solicita uno nuevo desde Netflix.
               </p>
             ) : (
-              <p className="text-xs text-[--color-content-subtle]">
+              <p className="text-xs text-[var(--color-content-subtle)]">
                 Caduca en <span className="pin-display">{formatCountdown(remaining)}</span>
               </p>
             )}
@@ -155,7 +158,7 @@ export function LivePinCard({ accountId, accountLabel, initialPin }: LivePinCard
                 target="_blank"
                 // `noopener` evita que la página destino acceda a `window.opener`.
                 rel="noopener noreferrer"
-                className="text-xs text-[--color-accent-hover] underline underline-offset-4"
+                className="text-xs text-[var(--color-accent-hover)] underline underline-offset-4"
               >
                 Abrir el enlace de confirmación de Netflix
               </a>

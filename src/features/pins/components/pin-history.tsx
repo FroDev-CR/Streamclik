@@ -18,11 +18,11 @@ export function PinHistory({ pins }: { pins: VerificationPin[] }) {
 
       <CardContent>
         {pins.length === 0 ? (
-          <p className="py-6 text-center text-sm text-[--color-content-muted]">
+          <p className="py-6 text-center text-sm text-[var(--color-content-muted)]">
             Todavía no se ha recibido ningún código
           </p>
         ) : (
-          <ul className="divide-y divide-[--color-border]">
+          <ul className="divide-y divide-[var(--color-border)]">
             {pins.map((pin) => {
               const expired = isPinExpired(pin);
 
@@ -32,7 +32,7 @@ export function PinHistory({ pins }: { pins: VerificationPin[] }) {
                     <span
                       className={cn(
                         'pin-display text-lg',
-                        expired ? 'text-[--color-content-subtle]' : 'text-[--color-content]',
+                        expired ? 'text-[var(--color-content-subtle)]' : 'text-[var(--color-content)]',
                       )}
                     >
                       {pin.code}
@@ -47,7 +47,7 @@ export function PinHistory({ pins }: { pins: VerificationPin[] }) {
                       en una incidencia. */}
                   <time
                     dateTime={pin.receivedAt}
-                    className="shrink-0 text-xs text-[--color-content-subtle]"
+                    className="shrink-0 text-xs text-[var(--color-content-subtle)]"
                   >
                     {formatDateTime(pin.receivedAt)}
                   </time>

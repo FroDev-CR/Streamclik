@@ -7,28 +7,35 @@
  * (`--color-gray-900`) para que cambiar la identidad visual o añadir un modo
  * claro sea editar este bloque, no cuarenta componentes.
  *
- * La paleta es oscura por defecto: la aplicación se consulta a menudo de noche y
- * desde el móvil, con el código en pantalla como elemento protagonista.
+ * La paleta la manda la landing: crema, negro, amarillo y azul. La aplicación
+ * era oscura y la portada clara, así que entrar al panel parecía cambiar de
+ * producto. Unificar el token hace que toda la interfaz —tarjetas, botones,
+ * insignias— herede la identidad sin tocar los componentes uno a uno, que es
+ * justo para lo que existen los tokens semánticos.
  */
 @theme {
-  --color-canvas: #08090c;
-  --color-surface: #101218;
-  --color-surface-raised: #171a22;
-  --color-border: #23262f;
-  --color-border-strong: #333846;
+  --color-canvas: #f4f1e8;
+  --color-surface: #fffdf6;
+  --color-surface-raised: #ffffff;
 
-  --color-content: #f2f4f8;
-  --color-content-muted: #9aa1b1;
-  --color-content-subtle: #6b7280;
+  /* En un diseño neo-brutalista el borde no es una separación sutil: es trazo.
+     Por eso ambos bordes son el mismo negro y el contraste lo da el grosor. */
+  --color-border: #050505;
+  --color-border-strong: #050505;
 
-  /* Identidad de marca: azul y ámbar, tomados del logotipo.
+  --color-content: #050505;
+  --color-content-muted: #55534d;
+  --color-content-subtle: #78756c;
+
+  /* Identidad de marca: azul y amarillo, tomados del logotipo.
      El rojo Netflix de la primera versión describía el servicio que se revende,
      no la plataforma. Al ponerlo como color de acento, cada botón parecía un
      control de Netflix y la marca propia desaparecía. */
-  --color-accent: #1e7fff;
-  --color-accent-hover: #4d9bff;
-  --color-accent-soft: #0b1c33;
+  --color-accent: #075dff;
+  --color-accent-hover: #0a4bd0;
+  --color-accent-soft: #e3ecff;
 
+  --color-brand-yellow: #ffd300;
   --color-brand-amber: #f5a800;
   --color-brand-amber-hover: #ffbe33;
 
@@ -39,9 +46,12 @@
   --color-shader-3: #9e7900;
   --color-shader-4: #f6de2a;
 
-  --color-success: #22c55e;
-  --color-warning: #f59e0b;
-  --color-danger: #ef4444;
+  /* Tonos de estado ajustados para leerse sobre crema, no sobre negro. Los
+     originales eran los de un tema oscuro y sobre fondo claro perdían contraste
+     justo donde más importa: el aviso de que algo falló. */
+  --color-success: #15803d;
+  --color-warning: #a16207;
+  --color-danger: #c62828;
 
   --font-sans:
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
@@ -1010,7 +1020,10 @@
   }
 
   html {
-    color-scheme: dark;
+    /* Alinea los controles nativos (scrollbars, selects, date pickers) con la
+       paleta clara. Dejarlo en `dark` hacía que el selector de fecha del panel
+       apareciera en negro sobre la tarjeta crema. */
+    color-scheme: light;
   }
 
   body {
