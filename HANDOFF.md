@@ -44,13 +44,20 @@ desarrollo va aquí, nunca a la rama principal sin permiso explícito.
 | **Dominio `streamclick.xyz`** | ✅ **Resuelto y apuntando a Vercel** |
 | **DNS en Cloudflare** | ✅ **Autoritativo** (`dell`/`sage.ns.cloudflare.com`) |
 | **Email Routing (MX)** | ✅ **Activo** (`route1/2/3.mx.cloudflare.net`) |
-| **Catch-all → Worker** | ❌ **No configurado** |
-| **Email Worker desplegado** | ❌ **No** |
-| **Primer admin** | ❌ **No** |
+| **Catch-all → Worker** | ✅ **Configurado** |
+| **Email Worker desplegado** | ✅ **Desplegado** |
+| **Primer admin** | ✅ **Creado** |
+| **Cuenta de Netflix migrada** | ✅ **Su correo ya apunta al buzón del dominio** |
+| **Código real recibido de punta a punta** | ⏳ **Pendiente de confirmar** |
 
-Los tres estados de dominio y correo están **verificados por consulta DNS real**
-el 2026-08-01, no dados por buenos: el dominio ya puede recibir correo sin que
-rebote. Lo que falta es decirle a Cloudflare qué hacer con él.
+Dominio y MX verificados por consulta DNS real. El resto está confirmado por
+captura del panel en producción: llegan correos de Netflix al buzón del dominio y
+se registran en *Correos recibidos*.
+
+**El operador trabaja desde el móvil.** No des por hecho que puede ejecutar
+comandos: para el Worker existe un workflow de GitHub Actions lanzable desde el
+navegador (`docs/09-desplegar-sin-terminal.md`), y la aplicación la despliega
+Vercel sola en cada push.
 
 ### Coordenadas de producción
 
@@ -102,12 +109,12 @@ El dominio y el DNS **ya están resueltos** (eran los dos puntos lentos). Queda 
 última milla, toda ella en paneles externos. Guía detallada en
 [`docs/07-correo-entrante.md`](docs/07-correo-entrante.md).
 
-1. **Desplegar el Worker** — `cd workers/inbound-email && npx wrangler deploy`,
-   con `wrangler secret put INBOUND_EMAIL_WEBHOOK_SECRET` usando **el mismo valor
-   exacto** que hay en Vercel.
-2. **Catch-all → Worker** — Cloudflare → Email → Email Routing → Routes.
-3. **Primer admin** — registrarse y promover con un `UPDATE` en SQL.
-4. **Crear la cuenta** en `/admin` con `inbox_email = netflix1@streamclick.xyz`.
+1. **Redesplegar el Worker** con el arreglo de la cabecera `From` (§6.14). Desde
+   el móvil: Actions → «Desplegar Email Worker» → Run workflow. Requiere los tres
+   secretos de `docs/09-desplegar-sin-terminal.md` configurados en GitHub.
+2. **Asignarse un perfil** en `/admin`: los PIN se conceden por asignación, no
+   por rol, así que sin ella el propio operador no ve ningún código.
+3. **Pedir un código real** desde Netflix y comprobar que aparece solo.
 
 Para saber en qué punto está la cadena en cualquier momento:
 
@@ -595,5 +602,6 @@ Imprime un `curl` firmado. El fixture ya apunta a `netflix1@streamclick.xyz`.
 | [`docs/06-despliegue.md`](docs/06-despliegue.md) | Runbook de despliegue completo |
 | [`docs/07-correo-entrante.md`](docs/07-correo-entrante.md) | **Correo entrante — el paso actual** |
 | [`docs/08-migrar-cuenta-netflix.md`](docs/08-migrar-cuenta-netflix.md) | Pasar una cuenta de Netflix a un buzón del dominio |
+| [`docs/09-desplegar-sin-terminal.md`](docs/09-desplegar-sin-terminal.md) | Desplegar el Worker desde el móvil, sin terminal |
 | [`docs/adr/`](docs/adr/) | Por qué se tomó cada decisión |
 | [`workers/inbound-email/README.md`](workers/inbound-email/README.md) | Desplegar y depurar el Worker |

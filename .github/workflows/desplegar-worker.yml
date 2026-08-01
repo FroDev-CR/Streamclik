@@ -1,0 +1,72 @@
+# =============================================================================
+# Despliegue del Email Worker de Cloudflare
+# =============================================================================
+# Existe para poder desplegar el Worker **sin terminal**. La aplicación de
+# Next.js la despliega Vercel sola en cada push, pero el Worker vive en
+# Cloudflare y hasta ahora exigía `npx wrangler deploy` desde un ordenador.
+#
+# `workflow_dispatch` permite lanzarlo a mano desde el navegador —también desde
+# el móvil— en la pestaña Actions del repositorio.
+# =============================================================================
+
+name: Desplegar Email Worker
+
+on:
+  # Lanzamiento manual: Actions → "Desplegar Email Worker" → "Run workflow".
+  workflow_dispatch:
+
+  # Automático cuando cambia el código del Worker, para que no se quede atrás
+  # respecto al repositorio sin que nadie se dé cuenta.
+  push:
+    branches:
+      - claude/streamclick-saas-architecture-ad9wlm
+      - main
+    paths:
+      - 'workers/inbound-email/**'
+      - '.github/workflows/desplegar-worker.yml'
+
+# Un despliegue a la vez: dos ejecuciones simultáneas sobre el mismo Worker
+# pueden dejar publicada la versión más antigua.
+concurrency:
+  group: worker-inbound-email
+  cancel-in-progress: false
+
+jobs:
+  desplegar:
+    name: Publicar en Cloudflare
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar el repositorio
+        uses: actions/checkout@v4
+
+      - name: Preparar Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Instalar dependencias del Worker
+        working-directory: workers/inbound-email
+        run: npm install --no-audit --no-fund
+
+      - name: Desplegar
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: workers/inbound-email
+          # Publica también el secreto compartido con la aplicación. Debe ser el
+          # MISMO valor que INBOUND_EMAIL_WEBHOOK_SECRET en Vercel: si difieren,
+          # el webhook responde 401 a todo y ningún código llega jamás.
+          secrets: |
+            INBOUND_EMAIL_WEBHOOK_SECRET
+        env:
+          INBOUND_EMAIL_WEBHOOK_SECRET: ${{ secrets.INBOUND_EMAIL_WEBHOOK_SECRET }}
+
+      - name: Recordatorio
+        run: |
+          echo "Worker desplegado."
+          echo ""
+          echo "El enrutamiento NO se configura aquí: revisa que en Cloudflare"
+          echo "  Email → Email Routing → Routes → Catch-all"
+          echo "siga apuntando a 'streamclick-inbound-email'."

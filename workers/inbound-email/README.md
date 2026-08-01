@@ -18,6 +18,11 @@ tener que desplegar dos sistemas. El Worker es un traductor, no un parser.
 
 ## Despliegue
 
+> **¿Sin acceso a una terminal?** Hay un workflow de GitHub Actions que hace esto
+> mismo desde el navegador, también en el móvil:
+> [`docs/09-desplegar-sin-terminal.md`](../../docs/09-desplegar-sin-terminal.md).
+
+
 ```bash
 cd workers/inbound-email
 npm install
