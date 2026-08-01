@@ -62,6 +62,33 @@ function resolveMessageId(message, parsed) {
   return `${message.to}:${parsed.subject ?? ''}:${new Date().toISOString().slice(0, 16)}`;
 }
 
+/**
+ * Remitente real del mensaje: la cabecera `From`, no el remitente de sobre.
+ *
+ * `message.from` es el **envelope sender** (el `MAIL FROM` de SMTP), y los
+ * emisores masivos lo usan para gestionar rebotes: Netflix entrega sus correos
+ * con algo como `010f019fbdcf0972-cd1dd5…@amazonses.com`, mientras que la
+ * cabecera `From` que ve el usuario es `info@account.netflix.com`.
+ *
+ * La diferencia rompe el producto entero. `NetflixEmailParser.canHandle()`
+ * exige que el remitente sea un dominio de Netflix —para que un correo de
+ * phishing no pueda inyectar un código falso—, así que con el remitente de sobre
+ * **rechazaría todos los correos legítimos** y ningún código se extraería jamás.
+ * El fallo es silencioso: el correo se guarda como «sin código», que es
+ * exactamente lo que se ve cuando un correo promocional no trae ninguno.
+ *
+ * Se detectó en producción, mirando el monitor de correos recibidos: el
+ * remitente aparecía como un identificador de SES en vez de Netflix.
+ */
+function resolveFrom(message, parsed) {
+  const cabecera = parsed.from?.address ?? message.headers.get('from');
+  if (cabecera) return cabecera;
+
+  // Sin cabecera `From` (correo malformado) queda el remitente de sobre, que al
+  // menos permite registrar de dónde vino.
+  return message.from;
+}
+
 export default {
   /**
    * @param {ForwardableEmailMessage} message
@@ -80,11 +107,14 @@ export default {
     const payload = {
       messageId: resolveMessageId(message, parsed),
       to: message.to,
-      from: message.from,
+      from: resolveFrom(message, parsed),
       subject: parsed.subject ?? '',
       text: parsed.text ?? null,
       html: parsed.html ?? null,
       receivedAt: new Date().toISOString(),
+      // El remitente de sobre se conserva aparte para auditoría: es lo que de
+      // verdad entregó el mensaje y sirve para investigar suplantaciones.
+      envelopeFrom: message.from,
     };
 
     // El cuerpo se serializa UNA sola vez y se firma y se envía exactamente esa

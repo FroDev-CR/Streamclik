@@ -43,6 +43,23 @@ describe('canHandle', () => {
       parser.canHandle(email({ subject: 'Novedades de esta semana en Netflix' })),
     ).toBe(false);
   });
+
+  it('rechaza el remitente de sobre de un emisor masivo', () => {
+    // Netflix entrega a través de SES, y su envelope sender (`MAIL FROM`) es un
+    // identificador de rebote, no una dirección de Netflix.
+    //
+    // Este test documenta por qué el Worker de Cloudflare DEBE enviar la
+    // cabecera `From` y no `message.from`: con el remitente de sobre, todos los
+    // correos legítimos se rechazarían aquí y ningún código se extraería jamás.
+    // El fallo es silencioso —el correo queda como "sin código", igual que un
+    // promocional— y por eso costó tanto verlo en producción.
+    expect(
+      parser.canHandle(email({ from: '010f019fbdcf0972-cd1dd5@eu-west-1.amazonses.com' })),
+    ).toBe(false);
+
+    // La misma entrega, tomando la cabecera correcta, sí se acepta.
+    expect(parser.canHandle(email({ from: 'info@account.netflix.com' }))).toBe(true);
+  });
 });
 
 describe('parse — extracción del código', () => {

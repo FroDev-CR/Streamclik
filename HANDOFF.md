@@ -364,6 +364,23 @@ reporta *"entro pero no veo nada"*, empezar siempre por aquí y no por RLS.
 
 Se configura activando la integración con Supabase en el panel de Clerk.
 
+### 6.14 `message.from` del Worker NO es la cabecera `From`
+
+En un Email Worker de Cloudflare, `message.from` es el **remitente de sobre**
+(`MAIL FROM` de SMTP). Netflix entrega a través de SES, así que ahí llega algo
+como `010f019fbdcf0972-cd1dd5…@amazonses.com`, no `info@account.netflix.com`.
+
+Rompe el producto entero: `NetflixEmailParser.canHandle()` exige dominio de
+Netflix para que un phishing no inyecte códigos falsos, así que con el remitente
+de sobre **rechazaría todos los correos legítimos**. Y el fallo es silencioso: el
+correo se guarda como «sin código», exactamente igual que un promocional.
+
+El Worker usa `resolveFrom()`, que toma la cabecera `From` y sólo cae al
+remitente de sobre si falta. El envelope sender se conserva en `envelopeFrom`
+para auditoría. Cubierto por `tests/netflix-parser.test.ts`.
+
+Se detectó mirando el monitor de correos recibidos en producción, no con tests.
+
 ### 6.12 En Tailwind v4, `bg-[--var]` NO aplica ningún color
 
 `bg-[--color-accent]` compila sin quejarse y emite CSS **inválido**:

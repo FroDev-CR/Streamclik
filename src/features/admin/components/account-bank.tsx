@@ -35,7 +35,10 @@ function AssignForm({
 }) {
   if (clients.length === 0) {
     return (
-      <p className="text-xs text-[var(--color-content-muted)]">No hay clientes registrados.</p>
+      <p className="text-xs text-[var(--color-content-muted)]">
+        No hay usuarios registrados todavía. Pide a tu cliente que cree su cuenta en{' '}
+        <span className="font-mono">/registro</span>.
+      </p>
     );
   }
 
@@ -51,7 +54,11 @@ function AssignForm({
         </option>
         {clients.map((client) => (
           <option key={client.id} value={client.id}>
+            {/* El sufijo distingue tu propia cuenta de la de un cliente: es
+                habitual asignarse un perfil para probar que llegan los códigos, y
+                conviene no confundirlo con una venta real. */}
             {client.fullName ? `${client.fullName} · ${client.email}` : client.email}
+            {client.isAdmin ? ' (tú)' : ''}
           </option>
         ))}
       </Select>
