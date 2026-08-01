@@ -29,8 +29,6 @@ export interface AdminClientOption {
   id: string;
   email: string;
   fullName: string | null;
-  /** El operador aparece marcado para distinguirse de sus clientes. */
-  isAdmin: boolean;
 }
 
 export interface AdminProfileRow {
@@ -132,28 +130,24 @@ export async function getServiceOptions(): Promise<QueryResult<AdminServiceOptio
 }
 
 /**
- * Usuarios a los que se puede asignar un perfil.
+ * Clientes a los que se puede asignar un perfil.
  *
- * Incluye a los administradores a propósito. Filtrando por `role = 'client'`, un
- * operador recién instalado —que es el único usuario que existe— veía «No hay
- * clientes registrados» en todos los perfiles y **no podía asignarse ninguno**,
- * así que tampoco podía comprobar que los códigos llegan: los PIN se ven por
- * asignación, no por ser administrador.
- *
- * A nivel de datos no hay ninguna razón para excluirlos: `profile_assignments`
- * apunta a `user_profiles` sin distinguir el rol.
+ * Sólo usuarios con rol `client`. Durante la puesta en marcha se incluyó también
+ * al operador para poder probar de punta a punta que los códigos llegaban, pero
+ * era una muleta: el inventario es lo que se vende, y un administrador ocupando
+ * un perfil lo hace parecer vendido en el contador de ocupación.
  */
 export async function getClientOptions(): Promise<QueryResult<AdminClientOption[]>> {
   const supabase = await createSupabaseServerClient();
 
   const { data, error } = await supabase
     .from('user_profiles')
-    .select('id, email, full_name, role')
-    .order('role')
+    .select('id, email, full_name')
+    .eq('role', 'client')
     .order('email');
 
   if (error) {
-    logger.error('No se pudo leer la lista de usuarios', { error: error.message });
+    logger.error('No se pudo leer la lista de clientes', { error: error.message });
     return { data: [], error: error.message };
   }
 
@@ -162,7 +156,6 @@ export async function getClientOptions(): Promise<QueryResult<AdminClientOption[
       id: row.id,
       email: row.email,
       fullName: row.full_name,
-      isAdmin: row.role === 'admin',
     })),
     error: null,
   };

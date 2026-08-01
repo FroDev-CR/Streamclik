@@ -1,6 +1,6 @@
 import { SignOutButton } from '@clerk/nextjs';
 import Link from 'next/link';
-import { LayoutGrid, LogOut, Settings } from 'lucide-react';
+import { Boxes, LayoutGrid, LogOut, Settings } from 'lucide-react';
 
 import { Logo } from '@/components/logo';
 import { Button } from '@/components/ui/button';
@@ -46,7 +46,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <Link href="/dashboard">
               <Button variant="ghost" size="sm">
                 <LayoutGrid aria-hidden className="size-4" />
-                <span className="hidden sm:inline">Mis cuentas</span>
+                <span className="hidden sm:inline">Mis suscripciones</span>
+              </Button>
+            </Link>
+
+            <Link href="/configuracion">
+              <Button variant="ghost" size="sm">
+                <Settings aria-hidden className="size-4" />
+                <span className="hidden sm:inline">Configuración</span>
               </Button>
             </Link>
 
@@ -56,8 +63,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
             {isAdmin && (
               <Link href="/admin">
                 <Button variant="ghost" size="sm">
-                  <Settings aria-hidden className="size-4" />
-                  <span className="hidden sm:inline">Administración</span>
+                  {/* Icono distinto del de Configuración: en móvil sólo se ve el
+                      icono, y dos engranajes seguidos no se distinguen. */}
+                  <Boxes aria-hidden className="size-4" />
+                  <span className="hidden sm:inline">Banco</span>
                 </Button>
               </Link>
             )}

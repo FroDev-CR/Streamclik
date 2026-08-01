@@ -1,4 +1,7 @@
 import Link from "next/link";
+
+import { CatalogSection } from "@/features/catalog/components/catalog-section";
+import { getPublicCatalog } from "@/features/catalog/queries";
 import {
   ArrowRight,
   BadgeCheck,
@@ -67,7 +70,19 @@ const STEPS = [
   },
 ] as const;
 
-export default function LandingPage() {
+/**
+ * La disponibilidad del catálogo se revalida cada cinco minutos.
+ *
+ * Es el equilibrio entre dos cosas que importan: la portada es la página más
+ * visitada y no debería consultar la base de datos en cada visita, pero un
+ * contador de cupos que miente deja de ser creíble en cuanto alguien intenta
+ * comprar. Cinco minutos es más rápido de lo que cambia el inventario real.
+ */
+export const revalidate = 300;
+
+export default async function LandingPage() {
+  const catalogo = await getPublicCatalog();
+
   return (
     <main className="landing-page">
       <section className="landing-hero">
@@ -220,6 +235,11 @@ export default function LandingPage() {
           <span>Solo dale play</span>
         </div>
       </section>
+
+      {/* El escaparate va inmediatamente después del hero: responde a la
+          pregunta con la que llega el visitante —qué venden y a cuánto— antes
+          que cualquier argumento de venta. */}
+      <CatalogSection items={catalogo} />
 
       <section className="landing-value-section" id="ventajas">
         <div className="landing-shell landing-value-grid">

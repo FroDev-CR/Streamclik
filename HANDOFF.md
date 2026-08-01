@@ -35,7 +35,7 @@ desarrollo va aquí, nunca a la rama principal sin permiso explícito.
 | Aspecto | Estado |
 | --- | --- |
 | Código del MVP | ✅ Completo |
-| Tests | ✅ 37 en verde (5 archivos) |
+| Tests | ✅ 38 en verde (5 archivos) |
 | Typecheck | ✅ `tsc --noEmit` sin errores |
 | Lint | ✅ Sin avisos |
 | Build de producción | ✅ Correcto sin variables de entorno |
@@ -75,7 +75,7 @@ describe el formato viejo.
 
 ### Lo que ya está configurado
 
-- **Esquema:** las 8 migraciones aplicadas. Verificado: 9 tablas, **las 9 con
+- **Esquema:** 10 migraciones (las 8 iniciales + Clerk + catálogo público). Verificado: 9 tablas, **las 9 con
   `rowsecurity = true`**, 16 políticas, 7 enums y el catálogo sembrado con 3
   servicios.
 - **Realtime:** publica exactamente `verification_pins` y `profile_assignments`.
@@ -173,6 +173,7 @@ src/
 │   ├── (dashboard)/            # dashboard · cuenta/[id] · admin
 │   │   └── layout.tsx          # ⚠️ export const dynamic = 'force-dynamic'
 │   ├── catalogo/               # página pública de catálogo
+│   ├── configuracion/          # ajustes del cliente
 │   └── api/webhooks/inbound-email/route.ts   # ⭐ entrada del pipeline
 │
 ├── core/                       # ⚠️ NO importar Next ni Supabase aquí
@@ -603,5 +604,22 @@ Imprime un `curl` firmado. El fixture ya apunta a `netflix1@streamclick.xyz`.
 | [`docs/07-correo-entrante.md`](docs/07-correo-entrante.md) | **Correo entrante — el paso actual** |
 | [`docs/08-migrar-cuenta-netflix.md`](docs/08-migrar-cuenta-netflix.md) | Pasar una cuenta de Netflix a un buzón del dominio |
 | [`docs/09-desplegar-sin-terminal.md`](docs/09-desplegar-sin-terminal.md) | Desplegar el Worker desde el móvil, sin terminal |
+
+### Precios y catálogo público
+
+Los precios viven en `streaming_services.price_amount` para poder cambiarlos con
+un `UPDATE` en vez de con un despliegue:
+
+```sql
+update public.streaming_services set price_amount = 4000 where slug = 'netflix';
+```
+
+La portada los lee con `catalogo_publico()`, una función SECURITY DEFINER
+concedida a `anon` que devuelve **sólo agregados** —nombre, precio y recuento de
+perfiles libres—. Nunca expone correos, credenciales ni quién tiene contratado
+qué: es la diferencia entre publicar el escaparate y publicar el almacén.
+
+La sección se revalida cada 5 minutos (`export const revalidate = 300` en
+`src/app/page.tsx`).
 | [`docs/adr/`](docs/adr/) | Por qué se tomó cada decisión |
 | [`workers/inbound-email/README.md`](workers/inbound-email/README.md) | Desplegar y depurar el Worker |

@@ -80,6 +80,9 @@ export interface Database {
           pin_regex_patterns: string[];
           pin_ttl_seconds: number;
           is_active: boolean;
+          price_amount: number;
+          price_currency: string;
+          tagline: string | null;
           created_at: string;
         };
         Insert: {
@@ -90,6 +93,9 @@ export interface Database {
           pin_regex_patterns?: string[];
           pin_ttl_seconds?: number;
           is_active?: boolean;
+          price_amount?: number;
+          price_currency?: string;
+          tagline?: string | null;
         };
         Update: {
           name?: string;
@@ -98,6 +104,9 @@ export interface Database {
           pin_regex_patterns?: string[];
           pin_ttl_seconds?: number;
           is_active?: boolean;
+          price_amount?: number;
+          price_currency?: string;
+          tagline?: string | null;
         };
         Relationships: [];
       };
@@ -468,6 +477,19 @@ export interface Database {
           p_parse_error?: string | null;
         };
         Returns: Json;
+      };
+      catalogo_publico: {
+        Args: Record<string, never>;
+        Returns: {
+          slug: string;
+          nombre: string;
+          color: string;
+          lema: string | null;
+          precio: number;
+          moneda: string;
+          disponibles: number;
+          total: number;
+        }[];
       };
       expire_due_assignments: {
         Args: Record<string, never>;

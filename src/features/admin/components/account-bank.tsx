@@ -54,11 +54,7 @@ function AssignForm({
         </option>
         {clients.map((client) => (
           <option key={client.id} value={client.id}>
-            {/* El sufijo distingue tu propia cuenta de la de un cliente: es
-                habitual asignarse un perfil para probar que llegan los códigos, y
-                conviene no confundirlo con una venta real. */}
             {client.fullName ? `${client.fullName} · ${client.email}` : client.email}
-            {client.isAdmin ? ' (tú)' : ''}
           </option>
         ))}
       </Select>

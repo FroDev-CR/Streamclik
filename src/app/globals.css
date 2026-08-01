@@ -1599,6 +1599,220 @@
     background: var(--landing-blue);
   }
 
+
+  /* ------------------------------------------------------ catálogo (portada) */
+  /* Comparte los tokens --landing-* del bloque .landing-page: la sección vive
+     dentro de esa página, así que hereda su paleta sin redeclararla. */
+  .catalogo-section {
+    padding-block: clamp(84px, 9vw, 132px);
+    background: var(--landing-paper);
+    border-block: 3px solid var(--landing-black);
+  }
+
+  .catalogo-header {
+    max-width: 720px;
+  }
+
+  .catalogo-header h2 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(3rem, 5.5vw, 5.4rem);
+    font-weight: 900;
+    letter-spacing: -0.055em;
+    line-height: 0.9;
+    text-transform: uppercase;
+  }
+
+  .catalogo-intro {
+    margin: 22px 0 0;
+    font-size: 1.02rem;
+    line-height: 1.6;
+  }
+
+  .catalogo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 22px;
+    margin: 58px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .catalogo-card {
+    display: flex;
+    flex-direction: column;
+    padding: clamp(24px, 3vw, 32px);
+    border: 3px solid var(--landing-black);
+    border-radius: 22px;
+    background: var(--landing-cream);
+    box-shadow: 10px 10px 0 var(--landing-black);
+  }
+
+  /* Agotado se comunica con desaturación además del texto: el estado no debe
+     depender sólo de leer una etiqueta. */
+  .catalogo-card-agotado {
+    background: #e6e3da;
+    box-shadow: 6px 6px 0 rgb(5 5 5 / 35%);
+  }
+
+  .catalogo-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .catalogo-mark {
+    display: grid;
+    width: 58px;
+    height: 58px;
+    place-items: center;
+    border: 2px solid var(--landing-black);
+    border-radius: 16px;
+    color: #fff;
+    font-family: var(--font-display);
+    font-size: 1.6rem;
+    font-weight: 900;
+    box-shadow: 4px 4px 0 var(--landing-black);
+  }
+
+  .catalogo-stock {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 5px 11px;
+    border: 2px solid var(--landing-black);
+    border-radius: 999px;
+    background: var(--landing-yellow);
+    font-family: var(--font-display);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .catalogo-stock-agotado {
+    background: transparent;
+    color: rgb(5 5 5 / 55%);
+  }
+
+  .catalogo-stock-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #0a7c2f;
+  }
+
+  .catalogo-card h3 {
+    margin: 26px 0 0;
+    font-family: var(--font-display);
+    font-size: clamp(2rem, 3vw, 2.6rem);
+    font-weight: 900;
+    letter-spacing: -0.05em;
+    line-height: 0.95;
+    text-transform: uppercase;
+  }
+
+  .catalogo-lema {
+    margin: 12px 0 0;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    opacity: 0.78;
+  }
+
+  .catalogo-features {
+    margin: 22px 0 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+
+  .catalogo-features li {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 0.86rem;
+  }
+
+  .catalogo-features svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    stroke-width: 3;
+    color: var(--landing-blue);
+  }
+
+  /* `margin-top: auto` alinea el precio y el botón al pie de todas las tarjetas
+     aunque los lemas tengan distinta longitud. */
+  .catalogo-precio {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    margin-top: auto;
+    padding-top: 26px;
+  }
+
+  .catalogo-precio-monto {
+    font-family: var(--font-display);
+    font-size: 2.4rem;
+    font-weight: 900;
+    letter-spacing: -0.04em;
+  }
+
+  .catalogo-precio-periodo {
+    font-size: 0.86rem;
+    opacity: 0.65;
+  }
+
+  .catalogo-cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 18px;
+    padding: 14px 20px;
+    border: 2px solid var(--landing-black);
+    border-radius: 14px;
+    background: var(--landing-black);
+    color: #fff;
+    font-family: var(--font-display);
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-decoration: none;
+    box-shadow: 4px 4px 0 var(--landing-yellow);
+    transition:
+      transform 100ms,
+      box-shadow 100ms;
+  }
+
+  .catalogo-cta:active {
+    transform: translate(3px, 3px);
+    box-shadow: 1px 1px 0 var(--landing-yellow);
+  }
+
+  .catalogo-cta svg {
+    width: 15px;
+    height: 15px;
+    fill: var(--landing-yellow);
+  }
+
+  .catalogo-cta-disabled {
+    background: transparent;
+    color: rgb(5 5 5 / 45%);
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+
+  .catalogo-nota {
+    margin: 40px 0 0;
+    font-size: 0.88rem;
+    opacity: 0.7;
+  }
+
   .landing-value-section,
   .landing-process-section {
     background: var(--landing-cream);
