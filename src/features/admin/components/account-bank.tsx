@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useMemo, useState } from 'react';
-import { Inbox, Search, Trash2, UserPlus } from 'lucide-react';
+import { ChevronDown, Inbox, Search, Trash2, UserPlus } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -309,13 +309,16 @@ export function AccountBank({
 }
 
 /**
- * Tarjeta de una cuenta del banco.
+ * Tarjeta de una cuenta del banco, plegable.
  *
- * Es un componente aparte porque tiene estado propio: la confirmación de
- * borrado. Renderizarla dentro de la fila de insignias descolocaba la cabecera
- * —el contador de ocupación se partía en dos líneas—, así que ocupa su propia
- * franja bajo el encabezado, donde además se lee mejor por ser lo más
- * destructivo de la pantalla.
+ * Los perfiles se ocultan hasta tocar la cabecera. Con cinco perfiles por cuenta
+ * y varias cuentas, la lista completa ocupaba pantallas enteras de scroll para
+ * responder a una pregunta que se contesta con el contador de ocupación: cuánto
+ * queda libre. Al desplegar aparece el detalle.
+ *
+ * Se implementa con un `<button>` real y `aria-expanded`/`aria-controls` en vez
+ * de con un `div` con `onClick`: así funciona con teclado y los lectores de
+ * pantalla anuncian que la sección se abre y se cierra.
  */
 function AccountCard({
   account,
@@ -329,36 +332,57 @@ function AccountCard({
   formAction: (formData: FormData) => void;
 }) {
   const [confirmando, setConfirmando] = useState(false);
+  const [abierta, setAbierta] = useState(false);
 
   const ocupados = account.profiles.filter((p) => p.assignment !== null).length;
   const total = account.profiles.length;
   const lleno = ocupados === total && total > 0;
 
+  const idPanel = `perfiles-${account.id}`;
+
   return (
     <Card className="overflow-hidden">
-      <div className="flex flex-wrap items-center gap-3 border-b-2 border-[var(--color-border)] p-4">
-        {/* La marca del servicio como bloque macizo: identifica Netflix
-                  frente a Disney+ antes de leer nada. */}
-        <span
-          aria-hidden
-          className="grid size-11 shrink-0 place-items-center rounded-xl border-2 border-[var(--color-border)] font-[family-name:var(--font-display)] text-lg font-black text-white"
-          style={{ backgroundColor: account.brandColor }}
+      <div className="flex flex-wrap items-center gap-3 p-4">
+        {/* El botón ocupa el nombre y la marca, no la fila entera: las insignias
+            y la papelera quedan fuera para que un toque cerca del borrado no
+            despliegue la cuenta por accidente. */}
+        <button
+          type="button"
+          onClick={() => setAbierta((v) => !v)}
+          aria-expanded={abierta}
+          aria-controls={idPanel}
+          className="flex min-w-0 flex-1 items-center gap-3 text-left"
         >
-          {account.serviceName.charAt(0)}
-        </span>
+          <span
+            aria-hidden
+            className="grid size-11 shrink-0 place-items-center rounded-xl border-2 border-[var(--color-border)] font-[family-name:var(--font-display)] text-lg font-black text-white"
+            style={{ backgroundColor: account.brandColor }}
+          >
+            {account.serviceName.charAt(0)}
+          </span>
 
-        <div className="min-w-0 flex-1">
-          <p className="truncate font-[family-name:var(--font-display)] text-base font-black uppercase leading-tight">
-            {account.label}
-          </p>
-          <p className="truncate font-mono text-xs text-[var(--color-content-muted)]">
-            {account.inboxEmail}
-          </p>
-        </div>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-[family-name:var(--font-display)] text-base font-black uppercase leading-tight">
+              {account.label}
+            </span>
+            <span className="block truncate text-xs text-[var(--color-content-muted)]">
+              {account.serviceName} · {ocupados} de {total} ocupados
+            </span>
+          </span>
+
+          <ChevronDown
+            aria-hidden
+            className={cn(
+              'size-5 shrink-0 transition-transform duration-150',
+              abierta && 'rotate-180',
+            )}
+            strokeWidth={2.5}
+          />
+        </button>
 
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <Badge tone={lleno ? 'accent' : 'neutral'}>
-            {ocupados}/{total} ocupados
+            {ocupados}/{total}
           </Badge>
           <Badge tone={account.status === 'active' ? 'success' : 'warning'}>
             {account.status === 'active' ? 'Activa' : account.status}
@@ -378,19 +402,43 @@ function AccountCard({
 
       {confirmando && <ConfirmDelete account={account} onCancel={() => setConfirmando(false)} />}
 
-      <CardContent className="p-4">
-        <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {account.profiles.map((profile) => (
-            <ProfileSlot
-              key={profile.profileId}
-              profile={profile}
-              clients={clients}
-              state={state}
-              formAction={formAction}
-            />
-          ))}
-        </ul>
-      </CardContent>
+      {abierta && (
+        <div id={idPanel} className="border-t-2 border-[var(--color-border)]">
+          {/* Los datos de la cuenta van dentro del desplegable, no en la
+              cabecera: son dos direcciones distintas y confundirlas es lo que
+              hace que los códigos no lleguen. El buzón de ingesta es donde
+              escribe la plataforma; el correo de acceso es el que usa el
+              cliente para entrar. */}
+          <dl className="grid gap-3 border-b-2 border-[var(--color-border)] bg-[var(--color-canvas)] p-4 sm:grid-cols-2">
+            <div className="min-w-0">
+              <dt className="text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--color-content-subtle)]">
+                Buzón de códigos
+              </dt>
+              <dd className="truncate font-mono text-xs">{account.inboxEmail}</dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--color-content-subtle)]">
+                Correo de acceso
+              </dt>
+              <dd className="truncate font-mono text-xs">{account.loginEmail}</dd>
+            </div>
+          </dl>
+
+          <CardContent className="p-4">
+            <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {account.profiles.map((profile) => (
+                <ProfileSlot
+                  key={profile.profileId}
+                  profile={profile}
+                  clients={clients}
+                  state={state}
+                  formAction={formAction}
+                />
+              ))}
+            </ul>
+          </CardContent>
+        </div>
+      )}
     </Card>
   );
 }

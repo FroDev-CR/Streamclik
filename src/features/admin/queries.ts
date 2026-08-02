@@ -48,6 +48,7 @@ export interface AdminAccountRow {
   id: string;
   label: string;
   inboxEmail: string;
+  loginEmail: string;
   serviceName: string;
   brandColor: string;
   status: AccountStatus;
@@ -183,7 +184,7 @@ export async function getAdminAccounts(): Promise<QueryResult<AdminAccountRow[]>
     .from('streaming_accounts')
     .select(
       `
-      id, label, inbox_email, status, max_profiles,
+      id, label, inbox_email, login_email, status, max_profiles,
       streaming_services ( name, brand_color ),
       account_profiles (
         id, label, slot_index,
@@ -210,6 +211,7 @@ export async function getAdminAccounts(): Promise<QueryResult<AdminAccountRow[]>
     id: string;
     label: string;
     inbox_email: string;
+    login_email: string;
     status: AccountStatus;
     max_profiles: number;
     streaming_services: { name: string; brand_color: string } | null;
@@ -232,6 +234,7 @@ export async function getAdminAccounts(): Promise<QueryResult<AdminAccountRow[]>
       id: account.id,
       label: account.label,
       inboxEmail: account.inbox_email,
+      loginEmail: account.login_email,
       serviceName: account.streaming_services?.name ?? 'Servicio',
       brandColor: account.streaming_services?.brand_color ?? '#666666',
       status: account.status,
