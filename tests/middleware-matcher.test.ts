@@ -25,12 +25,14 @@ function extraerPatrones(): string[] {
   const bloque = FUENTE.match(/matcher:\s*\[([\s\S]*?)\]/);
   if (!bloque?.[1]) throw new Error('No se encontró el matcher en src/middleware.ts');
 
-  return [...bloque[1].matchAll(/(['"])((?:\\.|(?!\1).)*)\1/g)]
-    .map((m) => m[2])
-    .filter((p): p is string => Boolean(p))
-    // El archivo fuente escapa las barras invertidas para el literal de cadena;
-    // al construir el RegExp hay que deshacer ese escape.
-    .map((p) => p.replace(/\\\\/g, '\\'));
+  return (
+    [...bloque[1].matchAll(/(['"])((?:\\.|(?!\1).)*)\1/g)]
+      .map((m) => m[2])
+      .filter((p): p is string => Boolean(p))
+      // El archivo fuente escapa las barras invertidas para el literal de cadena;
+      // al construir el RegExp hay que deshacer ese escape.
+      .map((p) => p.replace(/\\\\/g, '\\'))
+  );
 }
 
 const PATRONES = extraerPatrones();
@@ -60,6 +62,29 @@ describe('matcher del middleware', () => {
     expect(middlewareSeAplicaA('/dashboard')).toBe(true);
     expect(middlewareSeAplicaA('/admin')).toBe(true);
     expect(middlewareSeAplicaA('/cuenta/abc-123')).toBe(true);
+  });
+
+  it('exige sesión en todo el flujo de compra', () => {
+    // `/comprar` y `/historial` deben estar en `createRouteMatcher`, no sólo en
+    // el matcher del config. Es lo que hace que un visitante sin sesión pase por
+    // Clerk y **vuelva a la compra** en vez de aterrizar en el dashboard: sin
+    // ello, el enlace «Lo quiero» del catálogo pierde el producto elegido por el
+    // camino y la compra se abandona ahí.
+    const bloque = FUENTE.match(/createRouteMatcher\(\[([\s\S]*?)\]\)/);
+    expect(bloque?.[1], 'no se encontró createRouteMatcher en src/middleware.ts').toBeTruthy();
+
+    const privadas = [...bloque![1]!.matchAll(/'([^']+)'/g)].map((m) => m[1]!);
+    const protege = (ruta: string) =>
+      privadas.some((patron) => new RegExp(`^${patron}$`).test(ruta));
+
+    expect(protege('/comprar/netflix')).toBe(true);
+    expect(protege('/historial')).toBe(true);
+    expect(protege('/dashboard')).toBe(true);
+    expect(protege('/admin/pagos')).toBe(true);
+
+    // La portada y el catálogo público siguen abiertos: se explora sin cuenta.
+    expect(protege('/')).toBe(false);
+    expect(protege('/catalogo')).toBe(false);
   });
 
   it('no se ejecuta sobre los assets estáticos', () => {

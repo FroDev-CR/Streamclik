@@ -107,7 +107,12 @@ export function CatalogSection({ items }: { items: CatalogItem[] }) {
                     Sin cupos ahora
                   </span>
                 ) : (
-                  <Link href="/registro" className="catalogo-cta">
+                  // Lleva directo a la compra, no al registro. Quien no tenga
+                  // sesión pasa igualmente por Clerk —el middleware protege
+                  // `/comprar`— y vuelve a esta misma pantalla al entrar, así
+                  // que el registro deja de ser un desvío y se convierte en un
+                  // trámite dentro de la compra.
+                  <Link href={`/comprar/${item.slug}`} className="catalogo-cta">
                     <Zap aria-hidden /> Lo quiero
                   </Link>
                 )}

@@ -1,10 +1,11 @@
 import { SignOutButton } from '@clerk/nextjs';
 import Link from 'next/link';
-import { Boxes, LayoutGrid, LogOut, Settings, Users } from 'lucide-react';
+import { Boxes, LayoutGrid, LogOut, Receipt, Settings, Users, Wallet } from 'lucide-react';
 
 import { Logo } from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import { requireUser } from '@/features/auth/session';
+import { countPendingOrders } from '@/features/orders/queries';
 
 /**
  * Todas las rutas bajo este layout dependen de la cookie de sesión, así que
@@ -29,11 +30,13 @@ export const dynamic = 'force-dynamic';
  */
 const NAV_CLIENTE = [
   { href: '/dashboard', icono: LayoutGrid, etiqueta: 'Mis suscripciones' },
+  { href: '/historial', icono: Receipt, etiqueta: 'Mis compras' },
   { href: '/configuracion', icono: Settings, etiqueta: 'Configuración' },
 ] as const;
 
 const NAV_ADMIN = [
   { href: '/admin', icono: Boxes, etiqueta: 'Banco' },
+  { href: '/admin/pagos', icono: Wallet, etiqueta: 'Pagos' },
   { href: '/admin/clientes', icono: Users, etiqueta: 'Clientes' },
   { href: '/admin/plataformas', icono: Settings, etiqueta: 'Plataformas' },
 ] as const;
@@ -53,6 +56,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const enlaces = isAdmin ? NAV_ADMIN : NAV_CLIENTE;
   const inicio = isAdmin ? '/admin' : '/dashboard';
 
+  /**
+   * El aviso de pagos por revisar.
+   *
+   * Es la «notificación» del flujo de cobro, y va en la navegación en lugar de
+   * en un canal externo: el operador atiende los pagos desde este mismo panel,
+   * así que un número junto a «Pagos» le llega antes que un correo. Sólo se
+   * consulta para administradores; un cliente pagaría una consulta que además
+   * RLS le devolvería vacía.
+   */
+  const pagosPendientes = isAdmin ? await countPendingOrders() : 0;
+
   return (
     <div className="flex min-h-dvh flex-col bg-[var(--color-canvas)]">
       {/* La barra flota como una tarjeta con borde y sombra dura, igual que la
@@ -68,14 +82,28 @@ export default async function DashboardLayout({ children }: { children: React.Re
               en `requireAdmin()` y en RLS: ocultar un enlace no impide escribir
               la URL a mano. */}
           <nav className="flex items-center gap-1">
-            {enlaces.map(({ href, icono: Icono, etiqueta }) => (
-              <Link key={href} href={href}>
-                <Button variant="ghost" size="sm">
-                  <Icono aria-hidden className="size-4" />
-                  <span className="hidden sm:inline">{etiqueta}</span>
-                </Button>
-              </Link>
-            ))}
+            {enlaces.map(({ href, icono: Icono, etiqueta }) => {
+              const avisos = href === '/admin/pagos' ? pagosPendientes : 0;
+
+              return (
+                <Link key={href} href={href} className="relative">
+                  <Button variant="ghost" size="sm">
+                    <Icono aria-hidden className="size-4" />
+                    <span className="hidden sm:inline">{etiqueta}</span>
+                  </Button>
+
+                  {/* El número va sobre el icono y no como texto al lado porque
+                      en móvil la etiqueta se oculta y el aviso desaparecería
+                      justo donde más falta hace. */}
+                  {avisos > 0 && (
+                    <span className="pointer-events-none absolute -right-0.5 -top-0.5 flex min-w-[18px] items-center justify-center rounded-full border-2 border-[var(--color-border)] bg-[var(--color-danger)] px-1 font-[family-name:var(--font-display)] text-[0.6rem] font-black leading-[14px] text-white">
+                      {avisos > 9 ? '9+' : avisos}
+                      <span className="sr-only"> pagos por revisar</span>
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
 
             {/* Clerk revoca la sesión en su servidor, no sólo borra la cookie
                 local: un token copiado antes del cierre deja de servir. Y sigue

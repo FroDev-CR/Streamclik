@@ -15,6 +15,7 @@ import {
 
 import { Logo } from "@/components/logo";
 import { ShaderBackground } from "@/components/shader-background";
+import { formatPrice, getPublicCatalog } from "@/features/catalog/queries";
 
 export const metadata: Metadata = {
   title: "Catálogo",
@@ -24,51 +25,43 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-const PRODUCTS = [
-  {
-    slug: "netflix",
-    name: "Netflix",
-    eyebrow: "Series, películas y más",
-    description:
-      "Tu perfil listo para entrar, con los códigos de verificación siempre en tu panel.",
-    color: "#e50914",
-    initials: "N",
-    available: true,
-    features: [
-      "Perfil individual",
-      "Entrega automática",
-      "Códigos al instante",
-    ],
-  },
-  {
-    slug: "disney-plus",
-    name: "Disney+",
-    eyebrow: "Historias para todos",
-    description:
-      "Estamos preparando una experiencia tan automática y estable como la de Netflix.",
-    color: "#113ccf",
-    initials: "D+",
-    available: false,
-    features: ["Perfil individual", "Cuenta original", "Acceso protegido"],
-  },
-  {
-    slug: "prime-video",
-    name: "Prime Video",
-    eyebrow: "Entretenimiento sin límites",
-    description:
-      "Muy pronto podrás recibir también este acceso directamente desde StreamClick.",
-    color: "#00a8e1",
-    initials: "P",
-    available: false,
-    features: ["Perfil individual", "Cuenta original", "Acceso protegido"],
-  },
+/**
+ * Las iniciales de la tarjeta salen del nombre y no de una tabla escrita a mano:
+ * una plataforma creada desde el panel tiene que aparecer aquí completa, sin
+ * pasar por el código.
+ */
+function iniciales(nombre: string): string {
+  const limpio = nombre.replace(/\+/g, "");
+  return nombre.includes("+")
+    ? `${limpio.charAt(0).toUpperCase()}+`
+    : limpio.charAt(0).toUpperCase();
+}
+
+const FEATURES = [
+  "Perfil individual con PIN",
+  "Códigos de verificación al instante",
+  "Soporte cuando lo necesites",
 ] as const;
 
+/**
+ * Catálogo público.
+ *
+ * Los productos y su disponibilidad vienen de `catalogo_publico()`, no de una
+ * lista en el código. Estaban escritos a mano y decían «Próximamente» para
+ * Disney+ y Prime Video aunque hubiera cuentas cargadas en el banco: el
+ * escaparate contradecía al inventario, y esa es la clase de detalle que se
+ * paga en la primera compra fallida.
+ */
 export default async function CatalogPage() {
   const { userId } = await auth();
-  const purchaseHref = userId
-    ? "/dashboard"
-    : `/login?redirect_url=${encodeURIComponent("/dashboard")}`;
+  const productos = await getPublicCatalog();
+
+  // Sin sesión se pasa por Clerk y se vuelve a la compra del mismo producto: el
+  // registro deja de ser un desvío y pasa a ser un paso dentro de la compra.
+  const comprarHref = (slug: string) =>
+    userId
+      ? `/comprar/${slug}`
+      : `/login?redirect_url=${encodeURIComponent(`/comprar/${slug}`)}`;
 
   return (
     <main className="catalog-page">
@@ -155,59 +148,84 @@ export default async function CatalogPage() {
             </p>
           </div>
 
-          <div className="catalog-grid">
-            {PRODUCTS.map((product, index) => (
-              <article
-                key={product.slug}
-                className={`catalog-product-card ${product.available ? "catalog-product-active" : "catalog-product-soon"}`}
-              >
-                <div className="catalog-product-order">0{index + 1}</div>
-                <div
-                  className="catalog-product-mark"
-                  style={{ backgroundColor: product.color }}
-                  aria-hidden
-                >
-                  {product.initials}
-                </div>
+          {/* Sin productos la rejilla NO desaparece: se dice que están en
+              camino. Ocultar la sección entera dejaba la página idéntica tanto
+              si faltaba la migración como si no había stock, y no había forma
+              de distinguirlo. */}
+          {productos.length === 0 ? (
+            <p className="catalog-product-description">
+              Estamos preparando los perfiles disponibles. Escríbenos y te
+              avisamos en cuanto abramos cupos.
+            </p>
+          ) : (
+            <div className="catalog-grid">
+              {productos.map((product, index) => {
+                const disponible = product.disponibles > 0;
 
-                <div className="catalog-product-status">
-                  {product.available ? (
-                    <>
-                      <span className="catalog-status-dot" /> Disponible ahora
-                    </>
-                  ) : (
-                    <>
-                      <Clock3 aria-hidden /> Próximamente
-                    </>
-                  )}
-                </div>
+                return (
+                  <article
+                    key={product.slug}
+                    className={`catalog-product-card ${disponible ? "catalog-product-active" : "catalog-product-soon"}`}
+                  >
+                    <div className="catalog-product-order">0{index + 1}</div>
+                    <div
+                      className="catalog-product-mark"
+                      style={{ backgroundColor: product.color }}
+                      aria-hidden
+                    >
+                      {iniciales(product.nombre)}
+                    </div>
 
-                <p className="catalog-product-eyebrow">{product.eyebrow}</p>
-                <h3>{product.name}</h3>
-                <p className="catalog-product-description">
-                  {product.description}
-                </p>
+                    <div className="catalog-product-status">
+                      {disponible ? (
+                        <>
+                          <span className="catalog-status-dot" />{" "}
+                          {product.disponibles}{" "}
+                          {product.disponibles === 1
+                            ? "disponible"
+                            : "disponibles"}
+                        </>
+                      ) : (
+                        <>
+                          <Clock3 aria-hidden /> Sin cupos ahora
+                        </>
+                      )}
+                    </div>
 
-                <ul>
-                  {product.features.map((feature) => (
-                    <li key={feature}>
-                      <Check aria-hidden /> {feature}
-                    </li>
-                  ))}
-                </ul>
+                    <p className="catalog-product-eyebrow">
+                      {formatPrice(product.precio, product.moneda)} / mes
+                    </p>
+                    <h3>{product.nombre}</h3>
+                    <p className="catalog-product-description">
+                      {product.lema ??
+                        "Tu propio perfil, sin compartir tu cuenta con nadie."}
+                    </p>
 
-                {product.available ? (
-                  <Link href={purchaseHref} className="catalog-buy-button">
-                    Comprar perfil <ArrowRight aria-hidden />
-                  </Link>
-                ) : (
-                  <span className="catalog-buy-button catalog-buy-disabled">
-                    Muy pronto
-                  </span>
-                )}
-              </article>
-            ))}
-          </div>
+                    <ul>
+                      {FEATURES.map((feature) => (
+                        <li key={feature}>
+                          <Check aria-hidden /> {feature}
+                        </li>
+                      ))}
+                    </ul>
+
+                    {disponible ? (
+                      <Link
+                        href={comprarHref(product.slug)}
+                        className="catalog-buy-button"
+                      >
+                        Comprar perfil <ArrowRight aria-hidden />
+                      </Link>
+                    ) : (
+                      <span className="catalog-buy-button catalog-buy-disabled">
+                        Muy pronto
+                      </span>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
 
           <div className="catalog-explainer">
             <div className="catalog-explainer-icon">

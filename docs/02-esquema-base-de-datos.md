@@ -173,6 +173,43 @@ se reintenta con backoff independientemente.
 Quién vio qué PIN y cuándo. En un negocio de cuentas compartidas, la disputa
 típica es "alguien más usó mi perfil". Este registro la resuelve.
 
+### 2.9 `orders`
+
+El pedido de compra: quién pidió qué, cuánto pagó y en qué estado va. Existe
+antes que la asignación y sigue existiendo si se rechaza, porque es el registro
+de qué se cobró, no un paso intermedio.
+
+`price_amount` **congela** el precio en el momento de la compra. Si mañana sube
+la tarifa, lo cobrado sigue siendo lo que el cliente vio. Referenciar el precio
+vivo del servicio reescribiría el historial cada vez que se ajustan márgenes.
+
+`receipt_path` guarda una ruta dentro del bucket, no una URL: las URL firmadas
+caducan y almacenarlas dejaría enlaces muertos en la base de datos.
+
+Los estados están separados a propósito entre "pago verificado" y "perfil
+entregado": un pago puede ser correcto y no haber cupo libre, y fundirlos
+escondería justo el caso que hay que atender a mano. Detalle completo del ciclo
+en [`10-flujo-de-compra.md`](10-flujo-de-compra.md).
+
+Nadie borra pedidos. Rechazar es un cambio de estado.
+
+### 2.10 `payment_settings`
+
+Fila única con los datos de SINPE que ve el cliente al comprar. La unicidad no
+es una convención: la clave primaria es `boolean` con `CHECK (id)`, así que
+Postgres impide físicamente que existan dos configuraciones de cobro distintas.
+
+Está en la base de datos y no en variables de entorno para que cambiar el número
+sea un formulario y no un redespliegue; el operador trabaja desde el móvil.
+
+### 2.11 Bucket `comprobantes`
+
+No es una tabla, pero forma parte del esquema y de sus políticas. Bucket
+**privado** de Supabase Storage con RLS sobre `storage.objects`: la ruta empieza
+por el uuid interno del cliente y la política compara esa primera carpeta con
+`current_user_id()`. Un comprobante lleva nombre, teléfono e importe; en un
+bucket público quedaría accesible a quien diera con la ruta.
+
 ## 3. Estrategia de Row Level Security
 
 RLS está activo (`ENABLE ROW LEVEL SECURITY`) en **todas** las tablas de `public`,
@@ -209,6 +246,9 @@ controlado por el atacante.
 | `inbound_emails` | Sin acceso | SELECT |
 | `notification_outbox` | Sin acceso | SELECT |
 | `audit_logs` | INSERT propio | SELECT |
+| `orders` | SELECT los suyos · INSERT a su nombre · UPDATE sólo mientras no esté revisado | Todo |
+| `payment_settings` | SELECT | Todo |
+| `storage.objects` (`comprobantes`) | INSERT/SELECT/UPDATE bajo su propia carpeta | SELECT de todos |
 
 Nadie escribe en `verification_pins` con rol `authenticated`. Solo la
 `service_role` desde el webhook. Un cliente no puede inventarse un PIN.
@@ -232,6 +272,10 @@ El cliente además filtra por `account_id=eq.<uuid>` para no despertar el
 componente con PIN de otras cuentas suyas. Ese filtro es una optimización de
 rendimiento; la garantía de seguridad la sigue dando RLS.
 
+`orders` está también en la publicación, con el mismo `REPLICA IDENTITY FULL`.
+Sirve para que el contador de pagos por revisar del panel pueda actualizarse
+solo, sin recargar y sin tocar el esquema cuando se implemente.
+
 ## 5. Índices
 
 | Índice | Justificación |
@@ -241,6 +285,8 @@ rendimiento; la garantía de seguridad la sigue dando RLS.
 | `profile_assignments (user_id) WHERE status='active'` | Consulta del dashboard en cada carga. |
 | `inbound_emails (message_id)` UNIQUE | Idempotencia. |
 | `notification_outbox (status, next_attempt_at)` | Barrido del worker. |
+| `orders (submitted_at) WHERE status='esperando_revision'` | Cola de pagos del operador: parcial, porque sólo interesan los pendientes y son una fracción mínima de la tabla. |
+| `orders (user_id, created_at DESC)` | Historial de compras del cliente. |
 
 ## 6. Vistas
 

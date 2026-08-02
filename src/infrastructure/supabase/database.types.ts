@@ -26,6 +26,12 @@ export type PinCodeTypeDb = 'household' | 'login' | 'signup' | 'password_reset' 
 export type EmailParseStatusDb = 'parsed' | 'unmatched' | 'failed' | 'ignored';
 export type NotificationChannelDb = 'realtime' | 'whatsapp' | 'telegram' | 'push' | 'email';
 export type NotificationStatusDb = 'pending' | 'sent' | 'failed' | 'skipped';
+export type OrderStatusDb =
+  | 'esperando_comprobante'
+  | 'esperando_revision'
+  | 'entregado'
+  | 'rechazado'
+  | 'cancelado';
 
 /** Tablas sin columnas modificables por la API (sólo las escribe el webhook). */
 type NoUpdates = Record<string, never>;
@@ -377,6 +383,75 @@ export interface Database {
         ];
       };
 
+      orders: {
+        Row: {
+          id: string;
+          user_id: string;
+          service_id: string;
+          price_amount: number;
+          price_currency: string;
+          status: OrderStatusDb;
+          receipt_path: string | null;
+          receipt_note: string | null;
+          submitted_at: string | null;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          review_note: string | null;
+          assignment_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          service_id: string;
+          price_amount: number;
+          price_currency?: string;
+          status?: OrderStatusDb;
+          receipt_path?: string | null;
+          receipt_note?: string | null;
+          submitted_at?: string | null;
+        };
+        Update: {
+          status?: OrderStatusDb;
+          receipt_path?: string | null;
+          receipt_note?: string | null;
+          submitted_at?: string | null;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          review_note?: string | null;
+          assignment_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'orders_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'user_profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'orders_service_id_fkey';
+            columns: ['service_id'];
+            isOneToOne: false;
+            referencedRelation: 'streaming_services';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+
+      payment_settings: {
+        Row: {
+          id: boolean;
+          sinpe_number: string;
+          sinpe_name: string;
+          instructions: string;
+          updated_at: string;
+        };
+        Insert: { id?: boolean; sinpe_number?: string; sinpe_name?: string; instructions?: string };
+        Update: { sinpe_number?: string; sinpe_name?: string; instructions?: string };
+        Relationships: [];
+      };
+
       audit_logs: {
         Row: {
           id: string;
@@ -490,6 +565,10 @@ export interface Database {
           disponibles: number;
           total: number;
         }[];
+      };
+      soltar_cuenta: {
+        Args: { p_order_id: string; p_expires_at?: string | null };
+        Returns: Json;
       };
       expire_due_assignments: {
         Args: Record<string, never>;

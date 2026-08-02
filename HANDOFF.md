@@ -109,12 +109,17 @@ El dominio y el DNS **ya están resueltos** (eran los dos puntos lentos). Queda 
 última milla, toda ella en paneles externos. Guía detallada en
 [`docs/07-correo-entrante.md`](docs/07-correo-entrante.md).
 
-1. **Redesplegar el Worker** con el arreglo de la cabecera `From` (§6.14). Desde
+1. **Aplicar las migraciones 0010 y 0011** en el SQL Editor de Supabase. La 0010
+   añade precios y `catalogo_publico()`; la 0011 crea `orders`, el bucket
+   `comprobantes` y `soltar_cuenta()`. Sin ellas la portada no muestra catálogo
+   y la pantalla de compra falla al guardar. Se pueden pegar tal cual desde
+   `supabase/migrations/`.
+2. **Configurar los datos de cobro** en el panel: Pagos → Datos de cobro. Sin un
+   número de SINPE, la pantalla de compra lo dice y el cliente no puede pagar.
+3. **Redesplegar el Worker** con el arreglo de la cabecera `From` (§6.14). Desde
    el móvil: Actions → «Desplegar Email Worker» → Run workflow. Requiere los tres
    secretos de `docs/09-desplegar-sin-terminal.md` configurados en GitHub.
-2. **Asignarse un perfil** en `/admin`: los PIN se conceden por asignación, no
-   por rol, así que sin ella el propio operador no ve ningún código.
-3. **Pedir un código real** desde Netflix y comprobar que aparece solo.
+4. **Pedir un código real** desde Netflix y comprobar que aparece solo.
 
 Para saber en qué punto está la cadena en cualquier momento:
 
@@ -495,8 +500,10 @@ El runbook completo está en [`docs/06-despliegue.md`](docs/06-despliegue.md):
 Supabase → secretos → Vercel → dominio → correo → primer admin → verificación.
 
 Verificaciones que **no** hay que saltarse:
-- Las 9 tablas con `rowsecurity = true`.
-- `pg_publication_tables` lista `verification_pins` y `profile_assignments`.
+- Las 11 tablas con `rowsecurity = true`.
+- `pg_publication_tables` lista `verification_pins`, `profile_assignments` y
+  `orders`.
+- El bucket `comprobantes` existe y es **privado** (`public = false`).
 - El secreto HMAC **idéntico** en Vercel y en Cloudflare.
 
 ### 8.2 Worker de notificaciones (no implementado)
@@ -607,6 +614,7 @@ Imprime un `curl` firmado. El fixture ya apunta a `netflix1@streamclick.xyz`.
 | [`docs/07-correo-entrante.md`](docs/07-correo-entrante.md) | **Correo entrante — el paso actual** |
 | [`docs/08-migrar-cuenta-netflix.md`](docs/08-migrar-cuenta-netflix.md) | Pasar una cuenta de Netflix a un buzón del dominio |
 | [`docs/09-desplegar-sin-terminal.md`](docs/09-desplegar-sin-terminal.md) | Desplegar el Worker desde el móvil, sin terminal |
+| [`docs/10-flujo-de-compra.md`](docs/10-flujo-de-compra.md) | **Cobro por SINPE, comprobantes y «Soltar cuenta»** |
 
 ### Precios y catálogo público
 
@@ -624,5 +632,23 @@ qué: es la diferencia entre publicar el escaparate y publicar el almacén.
 
 La sección se revalida cada 5 minutos (`export const revalidate = 300` en
 `src/app/page.tsx`).
+
+### Flujo de compra
+
+El cliente paga por SINPE, sube la captura y espera; el operador la mira y
+pulsa un botón. Detalle en [`docs/10-flujo-de-compra.md`](docs/10-flujo-de-compra.md)
+y el porqué en [ADR-0009](docs/adr/0009-cobro-por-comprobante-manual.md).
+
+Lo que no hay que deshacer:
+
+- **El precio se copia del servicio en el servidor**, nunca del formulario. Si
+  llegara del cliente, cualquiera compraría por un colón editando el HTML.
+- **`soltar_cuenta()` es una función de base de datos**, no tres llamadas desde
+  la aplicación. El `FOR UPDATE ... SKIP LOCKED` dentro de la transacción es lo
+  único que impide que un doble clic entregue el mismo perfil dos veces.
+- **El bucket `comprobantes` es privado.** El panel abre las capturas con URL
+  firmada de 10 minutos. Un comprobante lleva nombre, teléfono e importe.
+- **`src/features/orders/presentation.ts` no importa `server-only`**: lo usan
+  componentes de cliente. Meter ahí una consulta rompe el build entero.
 | [`docs/adr/`](docs/adr/) | Por qué se tomó cada decisión |
 | [`workers/inbound-email/README.md`](workers/inbound-email/README.md) | Desplegar y depurar el Worker |

@@ -14,7 +14,15 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
  * redirección limpia al login en vez de un dashboard vacío sin explicación.
  */
 
-const esRutaPrivada = createRouteMatcher(['/dashboard(.*)', '/cuenta(.*)', '/admin(.*)']);
+const esRutaPrivada = createRouteMatcher([
+  '/dashboard(.*)',
+  '/cuenta(.*)',
+  '/admin(.*)',
+  '/comprar(.*)',
+  '/historial(.*)',
+  '/configuracion(.*)',
+  '/bienvenida(.*)',
+]);
 
 export default clerkMiddleware(async (auth, request) => {
   if (esRutaPrivada(request)) {
