@@ -9,7 +9,7 @@ import { getAccountForUser } from '@/features/accounts/queries';
 import { requireUser } from '@/features/auth/session';
 import { LivePinCard } from '@/features/pins/components/live-pin-card';
 import { PinHistory } from '@/features/pins/components/pin-history';
-import { getLatestPin, getPinHistory } from '@/features/pins/queries';
+import { getLivePins, getPinHistory } from '@/features/pins/queries';
 
 export const metadata: Metadata = { title: 'Detalle de la cuenta' };
 
@@ -36,7 +36,7 @@ export default async function AccountDetailPage({
 
   // Las dos consultas son independientes: se lanzan en paralelo para no sumar
   // sus latencias en el tiempo hasta el primer byte.
-  const [latestPin, history] = await Promise.all([getLatestPin(id), getPinHistory(id)]);
+  const [livePins, history] = await Promise.all([getLivePins(id), getPinHistory(id)]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -54,8 +54,8 @@ export default async function AccountDetailPage({
 
       <LivePinCard
         accountId={account.accountId}
-        accountLabel="Último código recibido"
-        initialPin={latestPin}
+        accountLabel="Códigos recientes"
+        initialPins={livePins}
       />
 
       <CredentialsPanel

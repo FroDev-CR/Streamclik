@@ -1,6 +1,10 @@
 import 'server-only';
 
-import type { VerificationPin } from '@/core/domain/entities';
+import {
+  LIVE_PIN_WINDOW_SECONDS,
+  MAX_LIVE_PINS,
+  type VerificationPin,
+} from '@/core/domain/entities';
 import { createSupabaseServerClient } from '@/infrastructure/supabase/server';
 
 /**
@@ -16,28 +20,39 @@ import { createSupabaseServerClient } from '@/infrastructure/supabase/server';
  * suscripción de Realtime ni una llamada directa a la API.
  */
 
-export async function getLatestPin(accountId: string): Promise<VerificationPin | null> {
+/**
+ * Códigos que deben verse en vivo al pintar la página.
+ *
+ * Se piden los de los últimos minutos y no sólo el último porque los perfiles de
+ * una cuenta comparten buzón: dos inquilinos que piden código casi a la vez
+ * generan dos correos, y quedarse con el más reciente hacía desaparecer el del
+ * otro sin avisar.
+ *
+ * El corte por fecha va en la consulta y no en el cliente para no traerse el
+ * historial entero en cada carga.
+ */
+export async function getLivePins(accountId: string): Promise<VerificationPin[]> {
   const supabase = await createSupabaseServerClient();
+
+  const desde = new Date(Date.now() - LIVE_PIN_WINDOW_SECONDS * 1000).toISOString();
 
   const { data } = await supabase
     .from('verification_pins')
     .select('id, account_id, code, code_type, action_url, received_at, expires_at')
     .eq('account_id', accountId)
+    .gte('received_at', desde)
     .order('received_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(MAX_LIVE_PINS);
 
-  if (!data) return null;
-
-  return {
-    id: data.id,
-    accountId: data.account_id,
-    code: data.code,
-    codeType: data.code_type,
-    actionUrl: data.action_url,
-    receivedAt: data.received_at,
-    expiresAt: data.expires_at,
-  };
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    accountId: row.account_id,
+    code: row.code,
+    codeType: row.code_type,
+    actionUrl: row.action_url,
+    receivedAt: row.received_at,
+    expiresAt: row.expires_at,
+  }));
 }
 
 /** Historial paginado. El límite por defecto cubre lo que cabe sin scroll infinito. */

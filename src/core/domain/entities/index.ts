@@ -106,6 +106,66 @@ export function secondsUntilExpiry(
 }
 
 /**
+ * Cuánto tiempo se queda un código en la vista «en vivo».
+ *
+ * No es lo mismo que `expiresAt`, y la distinción es deliberada: `expiresAt`
+ * dice cuándo el código **deja de funcionar en Netflix** (15 minutos), mientras
+ * que esta ventana dice cuánto se queda en la tarjeta grande antes de bajar al
+ * historial.
+ *
+ * Fundirlas sería mentir. Con una ventana de 5 minutos aplicada a `expiresAt`,
+ * un cliente que vuelve a los seis leería «caducado» sobre un código que aún
+ * sirve, pediría otro y generaría un correo de más. Con dos relojes, el código
+ * sale de la vista en vivo pero sigue accesible —y con su cuenta atrás real—
+ * en el historial de abajo.
+ *
+ * Cinco minutos porque es el tiempo que pasa entre pedir el código en Netflix y
+ * escribirlo. Pasado ese rato, lo que hay en pantalla ya no es «el código que
+ * estoy esperando» sino ruido que se puede confundir con el de otro inquilino.
+ */
+export const LIVE_PIN_WINDOW_SECONDS = 300;
+
+/**
+ * Cuántos códigos se muestran a la vez en la vista en vivo.
+ *
+ * Los perfiles de una cuenta comparten buzón, así que dos inquilinos que piden
+ * código con un minuto de diferencia producen dos correos. Antes el segundo
+ * **sustituía** al primero en pantalla: quien pidió primero veía el código de
+ * otro sin enterarse y lo daba por suyo. Apilarlos, con su hora de llegada, es
+ * lo que permite reconocer el propio.
+ *
+ * Cuatro es el tope porque es el número de perfiles de una cuenta: más códigos
+ * simultáneos que inquilinos no es un caso real, es una lista que ya nadie lee.
+ */
+export const MAX_LIVE_PINS = 4;
+
+/** ¿Sigue el código dentro de la ventana en vivo? */
+export function isWithinLiveWindow(
+  pin: Pick<VerificationPin, 'receivedAt'>,
+  now = new Date(),
+): boolean {
+  const edad = (now.getTime() - new Date(pin.receivedAt).getTime()) / 1000;
+  return edad < LIVE_PIN_WINDOW_SECONDS;
+}
+
+/**
+ * Códigos que deben verse en vivo: los de la ventana, del más nuevo al más
+ * viejo y como mucho `MAX_LIVE_PINS`.
+ *
+ * Se ordena aquí y no se confía en el orden de entrada porque las llegadas por
+ * Realtime pueden desordenarse al reconectar el WebSocket.
+ */
+export function selectLivePins(
+  pins: readonly VerificationPin[],
+  now = new Date(),
+): VerificationPin[] {
+  return pins
+    .filter((pin) => isWithinLiveWindow(pin, now))
+    .sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime())
+    .slice(0, MAX_LIVE_PINS);
+}
+
+/**
  * Vigencia real de una asignación.
  *
  * Comprueba las fechas además del status porque el barrido de caducidad

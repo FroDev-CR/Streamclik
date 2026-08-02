@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, Copy, Eye, EyeOff, KeyRound, Radio, ShieldAlert } from 'lucide-react';
+import { Check, Copy, Eye, EyeOff, KeyRound, Radio, ShieldAlert, Users } from 'lucide-react';
 
 import {
+  LIVE_PIN_WINDOW_SECONDS,
   PIN_TYPE_LABELS,
   isPinExpired,
   secondsUntilExpiry,
@@ -11,7 +12,7 @@ import {
 } from '@/core/domain/entities';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { useLatestPin } from '@/features/pins/use-latest-pin';
+import { useLivePins } from '@/features/pins/use-live-pins';
 import { cn, formatCountdown, formatDateTime, formatRelativeTime } from '@/lib/utils';
 
 /**
@@ -33,8 +34,10 @@ interface SubscriptionCardProps {
   loginPassword: string | null;
   profilePin: string | null;
   expiresAt: string | null;
-  initialPin: VerificationPin | null;
+  initialPins: VerificationPin[];
 }
+
+const VENTANA_MINUTOS = Math.round(LIVE_PIN_WINDOW_SECONDS / 60);
 
 /** Campo copiable con opción de ocultar, para las credenciales. */
 function CampoCopiable({
@@ -109,6 +112,121 @@ function CampoCopiable({
   );
 }
 
+/**
+ * Un código dentro de la tarjeta.
+ *
+ * Es un componente aparte porque cada código necesita su propio estado de
+ * «copiado»: con un único estado compartido, copiar el segundo marcaba también
+ * el primero como copiado, que es exactamente la confusión que este cambio
+ * pretende evitar.
+ */
+function CodigoVivo({
+  pin,
+  now,
+  reciénLlegado,
+  unico,
+}: {
+  pin: VerificationPin;
+  now: Date;
+  reciénLlegado: boolean;
+  unico: boolean;
+}) {
+  const [copiado, setCopiado] = useState(false);
+
+  useEffect(() => {
+    if (!copiado) return;
+    const t = setTimeout(() => setCopiado(false), 2000);
+    return () => clearTimeout(t);
+  }, [copiado]);
+
+  async function copiarCodigo() {
+    try {
+      await navigator.clipboard.writeText(pin.code);
+      setCopiado(true);
+    } catch {
+      /* el código sigue visible */
+    }
+  }
+
+  // La caducidad es la real de Netflix (~15 min), no la ventana de esta vista:
+  // un código puede salir de aquí y seguir funcionando.
+  const vencido = isPinExpired(pin, now);
+  const restante = secondsUntilExpiry(pin, now);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={copiarCodigo}
+        aria-label={`Copiar el código ${pin.code.split('').join(' ')}`}
+        className={cn(
+          'flex w-full items-center justify-between gap-4 rounded-2xl border-[3px] border-[var(--color-border)] px-5 py-5 text-left',
+          'transition-[transform,box-shadow] duration-100',
+          vencido
+            ? 'bg-[var(--color-canvas)] shadow-[4px_4px_0_var(--color-border)]'
+            : // Amarillo de marca para el código vigente: es el objeto que el
+              // usuario vino a buscar y debe ganar a todo lo demás.
+              'bg-[var(--color-brand-yellow)] shadow-[6px_6px_0_var(--color-border)] active:translate-x-[3px] active:translate-y-[3px] active:shadow-[2px_2px_0_var(--color-border)]',
+          reciénLlegado && 'animate-pin-arrive',
+        )}
+      >
+        <span
+          className={cn(
+            // Cuando hay varios no se agranda ninguno: todos son igual de
+            // legítimos y destacar el más reciente sugeriría que es «el bueno».
+            'pin-display font-black',
+            unico ? 'text-4xl' : 'text-3xl',
+            vencido && 'text-[var(--color-content-subtle)] line-through',
+          )}
+        >
+          {pin.code}
+        </span>
+
+        <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold">
+          {copiado ? (
+            <>
+              <Check aria-hidden className="size-4" /> Copiado
+            </>
+          ) : (
+            <>
+              <Copy aria-hidden className="size-4" /> Copiar
+            </>
+          )}
+        </span>
+      </button>
+
+      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
+        <Badge tone="neutral">{PIN_TYPE_LABELS[pin.codeType]}</Badge>
+
+        {/* Un código vencido se marca, nunca se oculta: si el usuario ve
+            "sin código" cuando llegó uno hace 20 minutos, vuelve a pedirlo
+            y genera otro correo innecesario. */}
+        {vencido ? (
+          <span className="flex items-center gap-1.5 text-xs text-[var(--color-warning)]">
+            <ShieldAlert aria-hidden className="size-3.5" />
+            Caducado, pide uno nuevo
+          </span>
+        ) : (
+          /* `suppressHydrationWarning` porque el texto **debe** diferir: el
+             servidor lo calcula al renderizar y el cliente uno o dos segundos
+             después, al hidratar. Sin esto React avisa de un desajuste en cada
+             carga y regenera el subárbol. Es el uso para el que existe el
+             atributo, no una forma de tapar un error. */
+          /* El atributo NO se propaga a los elementos hijos: hace falta también
+             en el `span` de la cuenta atrás, que es otro nodo de texto. */
+          <span suppressHydrationWarning className="text-xs text-[var(--color-content-muted)]">
+            Caduca en{' '}
+            <span suppressHydrationWarning className="pin-display">
+              {formatCountdown(restante)}
+            </span>{' '}
+            · {formatRelativeTime(pin.receivedAt, now)}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function SubscriptionCard({
   accountId,
   serviceName,
@@ -118,38 +236,11 @@ export function SubscriptionCard({
   loginPassword,
   profilePin,
   expiresAt,
-  initialPin,
+  initialPins,
 }: SubscriptionCardProps) {
-  const { pin, isConnected, justArrived } = useLatestPin({ accountId, initialPin });
-  const [copiado, setCopiado] = useState(false);
-  const [restante, setRestante] = useState(() => (pin ? secondsUntilExpiry(pin) : 0));
+  const { pins, isConnected, justArrivedId, now } = useLivePins({ accountId, initialPins });
 
-  // La cuenta atrás se calcula en el cliente: el HTML del servidor se cachea, y
-  // un "quedan 14:32" fijo seguiría en pantalla mientras el código expira.
-  useEffect(() => {
-    if (!pin) return;
-    setRestante(secondsUntilExpiry(pin));
-    const i = setInterval(() => setRestante(secondsUntilExpiry(pin)), 1000);
-    return () => clearInterval(i);
-  }, [pin]);
-
-  useEffect(() => {
-    if (!copiado) return;
-    const t = setTimeout(() => setCopiado(false), 2000);
-    return () => clearTimeout(t);
-  }, [copiado]);
-
-  async function copiarCodigo() {
-    if (!pin) return;
-    try {
-      await navigator.clipboard.writeText(pin.code);
-      setCopiado(true);
-    } catch {
-      /* el código sigue visible */
-    }
-  }
-
-  const vencido = pin ? isPinExpired(pin) : false;
+  const hayVarios = pins.length > 1;
 
   const diasRestantes = expiresAt
     ? Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86_400_000)
@@ -209,71 +300,48 @@ export function SubscriptionCard({
           </span>
         </div>
 
-        {!pin ? (
+        {pins.length === 0 ? (
           <div className="rounded-xl border-2 border-dashed border-[var(--color-content-subtle)] px-4 py-6 text-center">
-            <p className="text-sm text-[var(--color-content-muted)]">Aún no hay ningún código</p>
+            <p className="text-sm text-[var(--color-content-muted)]">
+              Aún no hay ningún código reciente
+            </p>
             <p className="mt-1 text-xs text-[var(--color-content-subtle)]">
               Solicítalo desde {serviceName} y aparecerá aquí solo
             </p>
           </div>
         ) : (
-          <>
-            <button
-              type="button"
-              onClick={copiarCodigo}
-              aria-label={`Copiar el código ${pin.code.split('').join(' ')}`}
-              className={cn(
-                'flex w-full items-center justify-between gap-4 rounded-2xl border-[3px] border-[var(--color-border)] px-5 py-5 text-left',
-                'transition-[transform,box-shadow] duration-100',
-                vencido
-                  ? 'bg-[var(--color-canvas)] shadow-[4px_4px_0_var(--color-border)]'
-                  : // Amarillo de marca para el código vigente: es el objeto que
-                    // el usuario vino a buscar y debe ganar a todo lo demás.
-                    'bg-[var(--color-brand-yellow)] shadow-[6px_6px_0_var(--color-border)] active:translate-x-[3px] active:translate-y-[3px] active:shadow-[2px_2px_0_var(--color-border)]',
-                justArrived && 'animate-pin-arrive',
-              )}
-            >
-              <span
-                className={cn(
-                  'pin-display text-4xl font-black',
-                  vencido && 'text-[var(--color-content-subtle)] line-through',
-                )}
+          <div className="flex flex-col gap-4">
+            {/* El aviso sólo sale cuando de verdad hay ambigüedad. Mostrarlo
+                siempre lo convertiría en decoración que nadie lee justo el día
+                que importa. */}
+            {hayVarios && (
+              <p
+                role="status"
+                className="flex items-start gap-2 rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-canvas)] px-3 py-2.5 text-xs leading-relaxed"
               >
-                {pin.code}
-              </span>
-
-              <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold">
-                {copiado ? (
-                  <>
-                    <Check aria-hidden className="size-4" /> Copiado
-                  </>
-                ) : (
-                  <>
-                    <Copy aria-hidden className="size-4" /> Copiar
-                  </>
-                )}
-              </span>
-            </button>
-
-            <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
-              <Badge tone="neutral">{PIN_TYPE_LABELS[pin.codeType]}</Badge>
-
-              {/* Un código vencido se marca, nunca se oculta: si el usuario ve
-                  "sin código" cuando llegó uno hace 20 minutos, vuelve a pedirlo
-                  y genera otro correo innecesario. */}
-              {vencido ? (
-                <span className="flex items-center gap-1.5 text-xs text-[var(--color-warning)]">
-                  <ShieldAlert aria-hidden className="size-3.5" />
-                  Caducado, pide uno nuevo
+                <Users aria-hidden className="mt-0.5 size-4 shrink-0" strokeWidth={2.5} />
+                <span>
+                  Llegaron <strong>{pins.length} códigos</strong> casi a la vez: alguien más de esta
+                  cuenta también pidió uno. Fíjate en la hora — el tuyo es el que llegó justo
+                  después de pedirlo.
                 </span>
-              ) : (
-                <span className="text-xs text-[var(--color-content-muted)]">
-                  Caduca en <span className="pin-display">{formatCountdown(restante)}</span> ·{' '}
-                  {formatRelativeTime(pin.receivedAt)}
-                </span>
-              )}
-            </div>
-          </>
+              </p>
+            )}
+
+            {pins.map((pin) => (
+              <CodigoVivo
+                key={pin.id}
+                pin={pin}
+                now={now}
+                reciénLlegado={pin.id === justArrivedId}
+                unico={!hayVarios}
+              />
+            ))}
+
+            <p className="text-[0.68rem] text-[var(--color-content-subtle)]">
+              Los códigos se quedan aquí {VENTANA_MINUTOS} minutos.
+            </p>
+          </div>
         )}
       </div>
 

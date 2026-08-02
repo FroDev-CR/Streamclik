@@ -32,7 +32,9 @@ export function PinHistory({ pins }: { pins: VerificationPin[] }) {
                     <span
                       className={cn(
                         'pin-display text-lg',
-                        expired ? 'text-[var(--color-content-subtle)]' : 'text-[var(--color-content)]',
+                        expired
+                          ? 'text-[var(--color-content-subtle)]'
+                          : 'text-[var(--color-content)]',
                       )}
                     >
                       {pin.code}

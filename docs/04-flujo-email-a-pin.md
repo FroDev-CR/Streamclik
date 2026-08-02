@@ -184,17 +184,50 @@ Tres garantías apiladas:
    activa no recibe el evento aunque se suscriba al canal a mano.
 2. **Filtro por `account_id`** — evita re-renders por cuentas ajenas del mismo
    usuario. Rendimiento, no seguridad.
-3. **Fetch inicial en el servidor** — el Server Component entrega el último PIN ya
-   renderizado en el HTML. Realtime solo aporta las **actualizaciones**. Sin esto,
-   la primera pintura mostraría "sin PIN" durante el handshake del WebSocket.
+3. **Fetch inicial en el servidor** — el Server Component entrega los PIN de la
+   ventana ya renderizados en el HTML. Realtime solo aporta las
+   **actualizaciones**. Sin esto, la primera pintura mostraría "sin PIN" durante
+   el handshake del WebSocket.
 
 ### Paso 10 — Reconexión
 
-`useLatestPin` vuelve a consultar el último PIN cuando la conexión se restablece
-y cuando la pestaña recupera el foco. Un WebSocket caído durante 30 segundos se
-pierde los eventos de ese intervalo; sin re-fetch, la UI mostraría un PIN viejo
-con total confianza. El caso realista es el móvil que se bloquea y se desbloquea
-justo cuando llega el código.
+`useLivePins` vuelve a consultar los PIN de la ventana cuando la conexión se
+restablece y cuando la pestaña recupera el foco. Un WebSocket caído durante 30
+segundos se pierde los eventos de ese intervalo; sin re-fetch, la UI mostraría un
+PIN viejo con total confianza. El caso realista es el móvil que se bloquea y se
+desbloquea justo cuando llega el código.
+
+### Paso 11 — Varios códigos a la vez
+
+Los perfiles de una cuenta **comparten buzón**: el correo de verificación va
+dirigido a la cuenta y no dice qué perfil lo pidió, porque Netflix no incluye esa
+información. No hay nada que leer para enrutarlo.
+
+La consecuencia es que dos inquilinos que piden código con un minuto de
+diferencia generan dos correos, y ambos los ven. La interfaz muestra **los dos**,
+ordenados por hora de llegada y hasta un máximo de cuatro —el número de perfiles
+de una cuenta—, con un aviso que explica cómo reconocer el propio.
+
+Antes mostraba uno solo y el que llegaba **sustituía** al anterior. Ese era el
+comportamiento peligroso: quien había pedido primero veía desaparecer su código
+sin enterarse y tomaba por suyo el del otro.
+
+Hay **dos relojes distintos** y conviene no confundirlos:
+
+| Reloj | Cuánto | Qué significa |
+| --- | --- | --- |
+| `expires_at` | `pin_ttl_seconds` (15 min) | Cuándo el código deja de funcionar en Netflix |
+| `LIVE_PIN_WINDOW_SECONDS` | 5 min | Cuánto se queda en la vista en vivo |
+
+Fundirlos sería mentir. Con una ventana de 5 minutos aplicada a `expires_at`, un
+cliente que vuelve a los seis leería «caducado» sobre un código que aún sirve,
+pediría otro y generaría un correo de más. Al separarlos, el código sale de la
+vista en vivo pero sigue en el historial, con su cuenta atrás real.
+
+Nada de esto es una frontera de seguridad: quien tiene asignación activa en la
+cuenta puede ver todos sus PIN, y eso lo decide RLS (`can_view_pin`), no la
+interfaz. Es una decisión de **presentación** para que cada quien reconozca su
+código.
 
 ## 3. Modos de fallo y respuesta
 
@@ -207,6 +240,7 @@ justo cuando llega el código.
 | Postgres caído | 500 → el proveedor reintenta; la idempotencia lo hace seguro |
 | WebSocket caído | Re-fetch al reconectar y al recuperar el foco |
 | PIN expirado | La UI lo marca como vencido a los 15 min, no lo oculta |
+| Dos PIN casi simultáneos | Se muestran ambos con su hora y un aviso; no se sustituyen |
 
 ## 4. Prueba local sin proveedor de correo
 

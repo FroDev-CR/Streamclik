@@ -650,5 +650,29 @@ Lo que no hay que deshacer:
   firmada de 10 minutos. Un comprobante lleva nombre, teléfono e importe.
 - **`src/features/orders/presentation.ts` no importa `server-only`**: lo usan
   componentes de cliente. Meter ahí una consulta rompe el build entero.
+
+### Códigos simultáneos en una misma cuenta
+
+Los perfiles de una cuenta comparten buzón y el correo de Netflix **no dice qué
+perfil pidió el código**. Dos inquilinos que piden con un minuto de diferencia
+generan dos correos y ambos los ven.
+
+La vista en vivo muestra **los dos** (hasta `MAX_LIVE_PINS`, que son cuatro) con
+su hora de llegada y un aviso. No hay que volver a «quedarse con el último»: eso
+hacía que quien pidió primero viera desaparecer su código y tomara por suyo el
+del otro, sin enterarse.
+
+Hay dos relojes y **no deben fundirse**:
+
+- `expires_at` (`pin_ttl_seconds`, 15 min) — cuándo deja de servir en Netflix.
+- `LIVE_PIN_WINDOW_SECONDS` (5 min) — cuánto se queda en la vista en vivo.
+
+Aplicar los 5 minutos a `expires_at` haría que la app dijera «caducado» sobre un
+código que aún funciona, y el cliente pediría otro para nada.
+
+Las cuentas atrás llevan `suppressHydrationWarning`: el servidor las calcula al
+renderizar y el cliente uno o dos segundos después, así que el texto **debe**
+diferir. El atributo **no se propaga a los elementos hijos** — hace falta también
+en el `span` interno del contador, cosa que costó una pasada de depuración.
 | [`docs/adr/`](docs/adr/) | Por qué se tomó cada decisión |
 | [`workers/inbound-email/README.md`](workers/inbound-email/README.md) | Desplegar y depurar el Worker |

@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { SubscriptionCard } from '@/features/accounts/components/subscription-card';
 import { getMyAccounts } from '@/features/accounts/queries';
 import { requireUser } from '@/features/auth/session';
-import { getLatestPin } from '@/features/pins/queries';
+import { getLivePins } from '@/features/pins/queries';
 import { yaCompletoOnboarding } from '@/features/settings/onboarding';
 
 export const metadata: Metadata = { title: 'Mis suscripciones' };
@@ -60,9 +60,9 @@ export default async function MisSuscripcionesPage() {
     );
   }
 
-  // Los últimos PIN se piden en paralelo: encadenarlos sumaría una ida y vuelta
-  // por suscripción antes de poder pintar nada.
-  const pins = await Promise.all(accounts.map((account) => getLatestPin(account.accountId)));
+  // Los códigos en vivo se piden en paralelo: encadenarlos sumaría una ida y
+  // vuelta por suscripción antes de poder pintar nada.
+  const pins = await Promise.all(accounts.map((account) => getLivePins(account.accountId)));
 
   return (
     <div className="flex flex-col gap-6">
@@ -92,7 +92,7 @@ export default async function MisSuscripcionesPage() {
             loginPassword={account.loginPassword}
             profilePin={account.profilePin}
             expiresAt={account.expiresAt}
-            initialPin={pins[indice] ?? null}
+            initialPins={pins[indice] ?? []}
           />
         ))}
       </div>
