@@ -10,12 +10,25 @@ streamclick.xyz.
 | `streamclick-estado-precios.png` | 1080×1920 | Estado de WhatsApp / historia con las tres plataformas |
 | `streamclick-estado-netflix.png` | 1080×1920 | Estado empujando una sola plataforma |
 | `streamclick-estado-disney.png` | 1080×1920 | Igual, con Disney+ |
+| `streamclick-estado-prime.png` | 1080×1920 | Igual, con Prime Video |
 | `streamclick-cuadrado.png` | 1080×1080 | Feed de Instagram o envío por chat |
+
+## Las piezas no llevan el nombre de la plataforma
+
+Sólo la marca de color. Es una decisión del operador y por eso la marca se
+agranda respecto a la primera versión: si no hay nombre escrito, la marca carga
+sola con la identificación. Disney lleva «D+» y no una «D» suelta por el mismo
+motivo.
+
+Conviene saber que el reconocimiento no es igual para las tres: un cuadro rojo
+con «N» se lee como Netflix al instante, pero «D+» y «P» dependen mucho más del
+color, sobre todo en una miniatura. Si alguna vez hay que elegir, el nombre
+ayuda más en Prime que en Netflix.
 
 ## Los precios están quemados en la imagen
 
 Salieron de `streaming_services.price_amount` en el momento de generarlas
-(₡3 500 / ₡3 000 / ₡2 500). **Si cambias un precio desde el panel, estas
+(₡3 000 / ₡3 000 / ₡2 500). **Si cambias un precio desde el panel, estas
 imágenes quedan desactualizadas**: no se regeneran solas. Hay que rehacerlas.
 
 ## Cómo se regeneran
