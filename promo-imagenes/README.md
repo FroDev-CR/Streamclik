@@ -1,57 +1,53 @@
-# Imágenes de promoción
+# Imágenes promocionales
 
-Piezas listas para publicar en estados de WhatsApp, historias de Instagram y
-feed. Generadas a partir de la propia aplicación —no con una fuente parecida—,
-de modo que la tipografía Kanit, la paleta y el logotipo son exactamente los de
-streamclick.xyz.
+Piezas listas para publicar. Se generan con código dentro de la propia
+aplicación, así que la tipografía Kanit, los colores y el logotipo son
+exactamente los de streamclick.xyz.
 
 | Archivo | Tamaño | Para qué |
 | --- | --- | --- |
-| `streamclick-estado-precios.png` | 1080×1920 | Estado de WhatsApp / historia con las tres plataformas |
+| `streamclick-combo-netflix-disney.png` | 1080×1920 | Combo Netflix + Disney+ a ₡4 500 |
+| `streamclick-combo-netflix-disney-max.png` | 1080×1920 | Combo Netflix + Disney+ + Max a ₡6 000 |
+| `streamclick-estado-precios.png` | 1080×1920 | Estado de WhatsApp / historia con las cuatro plataformas |
 | `streamclick-estado-netflix.png` | 1080×1920 | Estado empujando una sola plataforma |
 | `streamclick-estado-disney.png` | 1080×1920 | Igual, con Disney+ |
+| `streamclick-estado-max.png` | 1080×1920 | Igual, con Max |
 | `streamclick-estado-prime.png` | 1080×1920 | Igual, con Prime Video |
 | `streamclick-cuadrado.png` | 1080×1080 | Feed de Instagram o envío por chat |
 
 ## Las piezas no llevan el nombre de la plataforma
 
-Sólo la marca de color. Es una decisión del operador y por eso la marca se
-agranda respecto a la primera versión: si no hay nombre escrito, la marca carga
-sola con la identificación. Disney lleva «D+» y no una «D» suelta por el mismo
-motivo.
+Sólo la marca de color. Es una decisión del operador y por eso la marca va
+grande: si no hay nombre escrito, la marca carga sola con la identificación.
+Disney lleva «D+» y no una «D» suelta por el mismo motivo.
 
-Conviene saber que el reconocimiento no es igual para las tres: un cuadro rojo
-con «N» se lee como Netflix al instante, pero «D+» y «P» dependen mucho más del
-color, sobre todo en una miniatura. Si alguna vez hay que elegir, el nombre
-ayuda más en Prime que en Netflix.
+Conviene saber que el reconocimiento no es igual para todas: un cuadro rojo con
+«N» se lee como Netflix al instante, pero «D+», «M» y «P» dependen mucho más del
+color, sobre todo en una miniatura.
 
-## Los precios están quemados en la imagen
+Max se pinta violeta y no en su azul real: en las piezas de combo aparece junto
+a Disney+, cuyo azul es casi el mismo, y las dos marcas se fundían en una sola
+mancha.
 
-Salieron de `streaming_services.price_amount` en el momento de generarlas
-(₡3 000 / ₡3 000 / ₡2 500). **Si cambias un precio desde el panel, estas
-imágenes quedan desactualizadas**: no se regeneran solas. Hay que rehacerlas.
+## Los precios tienen que coincidir con la base de datos
 
-## Cómo se regeneran
+Las imágenes son estáticas; la web lee `streaming_services.price_amount`. Si se
+cambia un precio en una pieza y no en la base de datos, el cliente ve una cifra
+en el estado y otra al entrar a comprar, y esa discusión la pierde el operador.
 
-No hay script permanente a propósito: es una tarea puntual, no parte del build,
-y una ruta `/promo` viva en producción sería una página pública sin motivo.
+Precios de estas piezas: Netflix ₡3 000 · Disney+ ₡3 000 · Max ₡1 500 ·
+Prime Video ₡2 500. La migración `20260802001200_max_en_el_catalogo.sql` los
+deja alineados.
 
-El procedimiento es el mismo que el de verificación visual descrito en
-`HANDOFF.md`: se crea una ruta temporal que compone las piezas con tamaño fijo
-en píxeles, se levanta el servidor de desarrollo y se captura cada una con
-`locator.screenshot()` de Playwright, que respeta el tamaño exacto del elemento.
+## Los combos todavía no se pueden comprar en la web
 
-Dos detalles que costaron una pasada:
+El flujo de compra vende **un servicio por pedido**. Un cliente que quiera el
+combo tiene que hacer dos o tres pedidos por separado y pagaría la suma sin
+descuento. Mientras no exista soporte de combos, esas ventas se cierran a mano
+por WhatsApp.
 
-- **Nada de emoji.** El contenedor no tiene fuente de emoji a color, así que ⚡ y
-  ✓ salen como contornos finos que desaparecen en miniatura. Van dibujados como
-  SVG.
-- **Hay que ocultar `nextjs-portal`.** El indicador de desarrollo flota sobre la
-  página y se colaba recortado en el borde izquierdo de las capturas.
+## Regenerarlas
 
-## Lo que no llevan
-
-- **Número de WhatsApp.** La llamada a la acción es el dominio. Añadirlo es una
-  línea, pero el número vive en `payment_settings`, no en el repositorio.
-- **Disponibilidad.** Muestran precio, nunca cupos. Publicar una plataforma que
-  no está cargada en el banco genera pedidos que no se pueden entregar.
+Se generaban desde una ruta temporal `src/app/promo/page.tsx` que se borra al
+terminar, y se capturaban con Playwright apuntando al servidor de desarrollo.
+No hay script permanente: son piezas de campaña, no un artefacto del build.
