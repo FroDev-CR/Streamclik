@@ -7,13 +7,10 @@ import {
   BadgeCheck,
   Check,
   CircleDollarSign,
-  Clock3,
   CreditCard,
-  KeyRound,
   MessageCircleOff,
   MousePointerClick,
   ShieldCheck,
-  Sparkles,
   UserRoundCheck,
   Zap,
 } from "lucide-react";
