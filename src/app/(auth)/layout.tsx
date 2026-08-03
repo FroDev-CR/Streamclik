@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ArrowLeft, BadgeCheck, KeyRound, Zap } from "lucide-react";
 
 import { Logo } from "@/components/logo";
-import { ShaderBackground } from "@/components/shader-background";
 
 export default function AuthLayout({
   children,
@@ -11,7 +10,7 @@ export default function AuthLayout({
 }) {
   return (
     <main className="auth-page">
-      <ShaderBackground className="auth-shader" />
+      <div className="auth-shader sc-hero-grid-bg" aria-hidden />
       <div className="auth-background-wash" aria-hidden />
 
       <div className="auth-shell">
@@ -38,7 +37,7 @@ export default function AuthLayout({
               <br />
               Elige.
               <br />
-              Dale play.
+              A un click.
             </h2>
             <p className="auth-story-copy">
               Todo lo que necesitas para disfrutar tu perfil vive en un solo

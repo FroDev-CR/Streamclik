@@ -4,6 +4,7 @@ import { Boxes, LayoutGrid, LogOut, Receipt, Settings, Users, Wallet } from 'luc
 
 import { Logo } from '@/components/logo';
 import { Button } from '@/components/ui/button';
+import { WelcomeToast } from '@/features/auth/components/welcome-toast';
 import { requireUser } from '@/features/auth/session';
 import { countPendingOrders } from '@/features/orders/queries';
 
@@ -69,6 +70,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex min-h-dvh flex-col bg-[var(--color-canvas)]">
+      <WelcomeToast />
       {/* La barra flota como una tarjeta con borde y sombra dura, igual que la
           navegación de la portada: al pasar de la web pública al panel no debe
           parecer que se cambia de producto. */}

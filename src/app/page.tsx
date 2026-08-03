@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 
 import { Logo } from "@/components/logo";
-import { ShaderBackground } from "@/components/shader-background";
+import { Hero } from "@/components/ui/hero";
 
 const BENEFITS = [
   {
@@ -85,156 +85,7 @@ export default async function LandingPage() {
 
   return (
     <main className="landing-page">
-      <section className="landing-hero">
-        <ShaderBackground className="landing-shader" />
-        <div className="landing-hero-wash" aria-hidden />
-
-        <div className="landing-shell landing-hero-shell">
-          <header className="landing-nav">
-            <Link
-              href="/"
-              aria-label="StreamClick, inicio"
-              className="landing-logo-wrap"
-            >
-              <Logo className="landing-logo" priority />
-            </Link>
-
-            <nav
-              className="landing-nav-links"
-              aria-label="Navegación principal"
-            >
-              <Link href="#ventajas" className="landing-nav-anchor">
-                Ventajas
-              </Link>
-              <Link href="/login" className="landing-nav-anchor">
-                Entrar
-              </Link>
-              <Link
-                href="/catalogo"
-                className="landing-button landing-button-dark landing-button-small"
-              >
-                Ver cuentas
-                <ArrowRight aria-hidden />
-              </Link>
-            </nav>
-          </header>
-
-          <div className="landing-hero-grid">
-            <div className="landing-hero-copy">
-              <p className="landing-eyebrow">
-                <Sparkles aria-hidden />
-                Perfiles originales. Entrega inmediata.
-              </p>
-
-              <h1>
-                Tu streaming.
-                <br />
-                Más barato.
-                <br />
-                Sin esperas.
-              </h1>
-
-              <p className="landing-hero-description">
-                Compra cuentas y perfiles propios con un sistema realmente
-                automático. Sin chats, sin caídas y sin esperar a que alguien te
-                responda.
-              </p>
-
-              <div className="landing-hero-actions">
-                <Link
-                  href="/catalogo"
-                  className="landing-button landing-button-yellow"
-                >
-                  Quiero mi perfil
-                  <ArrowRight aria-hidden />
-                </Link>
-                <Link href="#como-funciona" className="landing-text-link">
-                  Cómo funciona
-                </Link>
-              </div>
-
-              <div
-                className="landing-proof-row"
-                aria-label="Beneficios principales"
-              >
-                <span>
-                  <Check aria-hidden /> Cuentas originales
-                </span>
-                <span>
-                  <Check aria-hidden /> Acceso inmediato
-                </span>
-                <span>
-                  <Check aria-hidden /> Sistema 24/7
-                </span>
-              </div>
-            </div>
-
-            <aside
-              className="landing-delivery-card"
-              aria-label="Ejemplo de entrega automática"
-            >
-              <div className="landing-delivery-topbar">
-                <span className="landing-live-dot" />
-                <span>Sistema activo</span>
-                <span className="landing-delivery-time">Ahora</span>
-              </div>
-
-              <div className="landing-delivery-heading">
-                <div className="landing-delivery-icon">
-                  <Zap aria-hidden />
-                </div>
-                <div>
-                  <p>Compra aprobada</p>
-                  <h2>Todo listo.</h2>
-                </div>
-              </div>
-
-              <div className="landing-access-card">
-                <div className="landing-access-title">
-                  <span>Tu acceso</span>
-                  <span className="landing-ready-pill">Entregado</span>
-                </div>
-                <dl>
-                  <div>
-                    <dt>Usuario</dt>
-                    <dd>cliente@streamclick.app</dd>
-                  </div>
-                  <div>
-                    <dt>Perfil</dt>
-                    <dd>Perfil 03</dd>
-                  </div>
-                </dl>
-              </div>
-
-              <div className="landing-pin-card">
-                <div>
-                  <span className="landing-pin-label">
-                    <KeyRound aria-hidden /> Código de acceso
-                  </span>
-                  <strong>482 991</strong>
-                </div>
-                <span className="landing-refresh-pill">
-                  <Clock3 aria-hidden /> Actualizado
-                </span>
-              </div>
-
-              <p className="landing-delivery-note">
-                <ShieldCheck aria-hidden /> Entrega protegida y automática
-              </p>
-            </aside>
-          </div>
-        </div>
-
-        <div className="landing-manifesto" aria-label="Nuestra promesa">
-          <span>Sin chats</span>
-          <i aria-hidden />
-          <span>Sin caídas</span>
-          <i aria-hidden />
-          <span>Sin esperas</span>
-          <i aria-hidden />
-          <span>Solo dale play</span>
-        </div>
-      </section>
+      <Hero />
 
       {/* El escaparate va inmediatamente después del hero: responde a la
           pregunta con la que llega el visitante —qué venden y a cuánto— antes
@@ -356,12 +207,11 @@ export default async function LandingPage() {
       </section>
 
       <section className="landing-final-cta">
-        <ShaderBackground className="landing-final-shader" />
         <div className="landing-final-wash" aria-hidden />
         <div className="landing-shell landing-final-content">
           <p className="landing-section-label">Tu próxima serie no espera</p>
           <h2>
-            Dale play.
+            A un click.
             <br />
             Nosotros hacemos el resto.
           </h2>

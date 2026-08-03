@@ -2531,3 +2531,562 @@
     }
   }
 }
+
+/* =============================================================================
+   Hero de la landing
+   =============================================================================
+   Sustituye al fondo WebGL, que la página montaba dos veces (hero y sección
+   final): dos contextos con sus bucles a 60 fps a pantalla completa. Aquí el
+   fondo son dos degradados repetidos — sin JavaScript, sin bucle, sin tirones.
+   ========================================================================== */
+
+@layer components {
+  .sc-hero {
+    --sc-blue: #0038ff;
+    --sc-blue-shadow: #001a99;
+    --sc-amber: #ffd300;
+    --sc-ink: #050505;
+
+    position: relative;
+    display: flex;
+    min-height: 100svh;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--sc-blue);
+    font-family: var(--font-sans);
+  }
+
+  /* Rejilla: dos degradados repetidos. El coste es el de pintar un fondo. */
+  .sc-hero-grid-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background-image:
+      linear-gradient(to right, rgb(255 255 255 / 8%) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(255 255 255 / 8%) 1px, transparent 1px);
+    background-size: 4rem 4rem;
+    pointer-events: none;
+  }
+
+  /* ------------------------------------------------------------------- nav */
+  .sc-hero-nav {
+    position: relative;
+    z-index: 20;
+    display: flex;
+    width: min(100% - 40px, 1440px);
+    align-items: center;
+    gap: 20px;
+    margin-inline: auto;
+    padding-block: 24px;
+  }
+
+  .sc-hero-logo-wrap {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    padding: 8px 14px;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 4px 4px 0 var(--sc-blue-shadow);
+  }
+
+  .sc-hero-logo {
+    width: auto;
+    height: 34px;
+  }
+
+  .sc-hero-tagline {
+    margin: 0;
+    padding: 7px 16px;
+    border: 1.5px solid rgb(255 255 255 / 55%);
+    border-radius: 999px;
+    color: #fff;
+    font-family: var(--font-display);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+
+  .sc-hero-nav-links {
+    display: flex;
+    margin-left: auto;
+    gap: 8px;
+  }
+
+  .sc-hero-nav-links a {
+    padding: 7px 16px;
+    border: 1px solid rgb(255 255 255 / 30%);
+    border-radius: 999px;
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color 160ms ease;
+  }
+
+  .sc-hero-nav-links a:hover {
+    background: rgb(255 255 255 / 12%);
+  }
+
+  .sc-hero-nav-cta {
+    flex: 0 0 auto;
+    padding: 9px 22px;
+    border: 2px solid var(--sc-ink);
+    border-radius: 999px;
+    background: var(--sc-amber);
+    color: var(--sc-ink);
+    font-family: var(--font-display);
+    font-size: 0.82rem;
+    font-weight: 800;
+    text-decoration: none;
+    box-shadow: 4px 4px 0 var(--sc-ink);
+    transition:
+      transform 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  .sc-hero-nav-cta:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0 var(--sc-ink);
+  }
+
+  /* --------------------------------------------------------------- titular */
+  .sc-hero-stage {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    width: min(100% - 40px, 1100px);
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    margin-inline: auto;
+    padding-block: 24px;
+  }
+
+  .sc-hero-title {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 900;
+    letter-spacing: -0.045em;
+    line-height: 0.84;
+    text-transform: uppercase;
+  }
+
+  /* El relieve son catorce sombras apiladas de 1 px. Un `text-shadow` grande
+     y difuminado se vería borroso; escalonarlas produce el bloque sólido. */
+  .sc-hero-line {
+    color: #fff;
+    text-shadow:
+      1px 1px 0 var(--sc-blue-shadow), 2px 2px 0 var(--sc-blue-shadow),
+      3px 3px 0 var(--sc-blue-shadow), 4px 4px 0 var(--sc-blue-shadow),
+      5px 5px 0 var(--sc-blue-shadow), 6px 6px 0 var(--sc-blue-shadow),
+      7px 7px 0 var(--sc-blue-shadow), 8px 8px 0 var(--sc-blue-shadow),
+      9px 9px 0 var(--sc-blue-shadow), 10px 10px 0 var(--sc-blue-shadow),
+      11px 11px 0 var(--sc-blue-shadow), 12px 12px 0 var(--sc-blue-shadow),
+      13px 13px 0 var(--sc-blue-shadow), 14px 14px 0 var(--sc-blue-shadow);
+  }
+
+  .sc-hero-line-1 {
+    align-self: flex-start;
+    margin-left: 4%;
+    color: var(--sc-amber);
+    font-size: clamp(3.5rem, 9vw, 8.5rem);
+  }
+
+  .sc-hero-line-2 {
+    align-self: center;
+    font-size: clamp(3.6rem, 13vw, 13rem);
+  }
+
+  /* La línea del eslogan es la que cierra el mensaje, así que va en ámbar y
+     desplazada: el ojo la lee al final del recorrido en zigzag. */
+  .sc-hero-line-3 {
+    align-self: flex-end;
+    margin-right: 2%;
+    color: var(--sc-amber);
+    font-size: clamp(2.6rem, 7.4vw, 7rem);
+  }
+
+  /* ------------------------------------------------------- capa decorativa */
+  .sc-hero-overlays {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .sc-float-card {
+    position: absolute;
+    z-index: 30;
+    animation: sc-float 5s ease-in-out infinite;
+  }
+
+  .sc-float-card-1 {
+    bottom: 4%;
+    left: 0;
+    transform: rotate(-11deg);
+  }
+
+  .sc-float-card-2 {
+    top: 6%;
+    right: 0;
+    animation-duration: 6.5s;
+    animation-delay: 1s;
+    transform: rotate(11deg);
+  }
+
+  .sc-float-card-inner {
+    display: flex;
+    width: 158px;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 16px;
+    border: 1px solid rgb(255 255 255 / 42%);
+    border-radius: 26px;
+    background: rgb(255 255 255 / 18%);
+    text-align: center;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 18px 40px rgb(0 0 0 / 22%);
+  }
+
+  .sc-float-avatar {
+    display: grid;
+    width: 54px;
+    height: 54px;
+    place-items: center;
+    border: 2px solid rgb(255 255 255 / 55%);
+    border-radius: 50%;
+    margin-bottom: 12px;
+    background: var(--sc-blue-shadow);
+    color: #fff;
+  }
+
+  .sc-float-avatar-amber {
+    background: var(--sc-amber);
+    color: var(--sc-ink);
+  }
+
+  .sc-float-avatar svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .sc-float-name {
+    margin: 0;
+    color: rgb(255 255 255 / 88%);
+    font-size: 0.72rem;
+    font-weight: 700;
+  }
+
+  .sc-float-code {
+    margin: 4px 0 0;
+    color: #fff;
+    font-family: var(--font-mono);
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+  }
+
+  .sc-float-code-small {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    letter-spacing: 0;
+  }
+
+  .sc-float-meta {
+    margin: 6px 0 0;
+    color: rgb(255 255 255 / 70%);
+    font-size: 0.64rem;
+  }
+
+  .sc-arrow {
+    position: absolute;
+    z-index: 20;
+    width: 92px;
+    height: 92px;
+    overflow: visible;
+    fill: none;
+    stroke: var(--sc-amber);
+    stroke-width: 6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .sc-arrow-left {
+    bottom: -2%;
+    left: 8%;
+  }
+
+  .sc-arrow-right {
+    top: 0;
+    right: 9%;
+  }
+
+  .sc-badge-wrap {
+    position: absolute;
+    right: 4%;
+    bottom: -8%;
+    z-index: 40;
+    pointer-events: auto;
+  }
+
+  .sc-badge {
+    position: relative;
+    display: grid;
+    width: 118px;
+    height: 118px;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--sc-amber);
+    box-shadow: 0 12px 30px rgb(0 0 0 / 26%);
+    transform: rotate(12deg);
+  }
+
+  .sc-badge-spin {
+    position: absolute;
+    inset: 6px;
+    animation: sc-spin 12s linear infinite;
+  }
+
+  .sc-badge-spin text {
+    fill: var(--sc-ink);
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .sc-badge-arrow {
+    width: 36px;
+    height: 36px;
+    overflow: visible;
+    fill: none;
+    stroke: var(--sc-ink);
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* ----------------------------------------------------------- pie del hero */
+  .sc-hero-foot {
+    position: relative;
+    z-index: 10;
+    width: min(100% - 40px, 1100px);
+    margin-inline: auto;
+    padding-bottom: 56px;
+  }
+
+  .sc-hero-description {
+    max-width: 560px;
+    margin: 0;
+    color: rgb(255 255 255 / 88%);
+    font-size: clamp(0.95rem, 1.2vw, 1.08rem);
+    line-height: 1.6;
+  }
+
+  .sc-hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 26px;
+  }
+
+  .sc-btn {
+    display: inline-flex;
+    min-height: 54px;
+    align-items: center;
+    padding-inline: 28px;
+    border: 2px solid var(--sc-ink);
+    border-radius: 12px;
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 800;
+    text-decoration: none;
+    box-shadow: 5px 5px 0 var(--sc-ink);
+    transition:
+      transform 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  .sc-btn:hover {
+    transform: translate(3px, 3px);
+    box-shadow: 2px 2px 0 var(--sc-ink);
+  }
+
+  .sc-btn-amber {
+    background: var(--sc-amber);
+    color: var(--sc-ink);
+  }
+
+  .sc-btn-ghost {
+    border-color: #fff;
+    background: transparent;
+    color: #fff;
+    box-shadow: 5px 5px 0 var(--sc-blue-shadow);
+  }
+
+  .sc-btn-ghost:hover {
+    box-shadow: 2px 2px 0 var(--sc-blue-shadow);
+  }
+
+  .sc-hero-proof {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+    margin: 30px 0 0;
+    padding: 20px 0 0;
+    border-top: 1px solid rgb(255 255 255 / 22%);
+    list-style: none;
+  }
+
+  .sc-hero-proof li {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  .sc-hero-proof svg {
+    width: 15px;
+    height: 15px;
+    padding: 2px;
+    border-radius: 50%;
+    background: var(--sc-amber);
+    color: var(--sc-ink);
+    stroke-width: 3;
+  }
+
+  @keyframes sc-float {
+    0%,
+    100% {
+      translate: 0 0;
+    }
+    50% {
+      translate: 0 -15px;
+    }
+  }
+
+  @keyframes sc-spin {
+    to {
+      rotate: 360deg;
+    }
+  }
+
+  /* Un fondo que se mueve sin parar molesta de verdad a quien tiene
+     sensibilidad vestibular. Con CSS esto es una media query, no lógica. */
+  @media (prefers-reduced-motion: reduce) {
+    .sc-float-card,
+    .sc-badge-spin {
+      animation: none;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .sc-hero-tagline,
+    .sc-hero-nav-links {
+      display: none;
+    }
+
+    .sc-hero-nav-links {
+      margin-left: 0;
+    }
+
+    .sc-hero-nav {
+      justify-content: space-between;
+    }
+
+    /* Las tarjetas y el badge se van en móvil: sobre un titular que ya ocupa
+       todo el ancho, se superponen al texto en vez de acompañarlo. */
+    .sc-float-card,
+    .sc-arrow,
+    .sc-badge-wrap {
+      display: none;
+    }
+
+    .sc-hero-line-1,
+    .sc-hero-line-3 {
+      margin-inline: 0;
+      align-self: flex-start;
+    }
+  }
+}
+
+@layer components {
+  /* `.sc-hero-grid-bg` lleva `z-index: 0`, que es lo correcto dentro del hero.
+     En auth y catálogo la rejilla ocupa el lugar del shader, que iba en -3.
+     Como ambos selectores tienen la misma especificidad, ganaría el declarado
+     más abajo y la rejilla taparía el contenido. Este bloque lo fija. */
+  .auth-shader.sc-hero-grid-bg,
+  .catalog-shader.sc-hero-grid-bg {
+    z-index: -3;
+  }
+
+  /* El hero del catálogo no declaraba fondo: lo ponía el shader. Sin él
+     heredaría el crema de la página y la rejilla blanca sería invisible. */
+  .catalog-hero {
+    background: var(--landing-blue);
+  }
+}
+
+@layer components {
+  /* Aviso de bienvenida. Sonner aporta el portal, el apilado, los temporizadores
+     y la región `aria-live`; el aspecto se define aquí para que hable el mismo
+     idioma gráfico que el resto — negro grueso y sombra dura, no la tarjeta
+     redondeada por defecto de la librería. */
+  .sc-toast {
+    display: flex;
+    width: 340px;
+    max-width: calc(100vw - 32px);
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    border: 2px solid #050505;
+    border-radius: 16px;
+    background: #fffdf6;
+    color: #050505;
+    box-shadow: 6px 6px 0 #050505;
+  }
+
+  .sc-toast-avatar {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 auto;
+    border: 2px solid #050505;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .sc-toast-avatar-fallback {
+    display: grid;
+    place-items: center;
+    background: #ffd300;
+    font-family: var(--font-display);
+    font-size: 1.15rem;
+    font-weight: 900;
+  }
+
+  .sc-toast-body {
+    min-width: 0;
+  }
+
+  .sc-toast-title {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: 1.02rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+
+  .sc-toast-text {
+    margin: 3px 0 0;
+    color: #55524c;
+    font-size: 0.79rem;
+    line-height: 1.35;
+  }
+}

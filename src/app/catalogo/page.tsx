@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 
 import { Logo } from "@/components/logo";
-import { ShaderBackground } from "@/components/shader-background";
 import { formatPrice, getPublicCatalog } from "@/features/catalog/queries";
 
 export const metadata: Metadata = {
@@ -66,7 +65,7 @@ export default async function CatalogPage() {
   return (
     <main className="catalog-page">
       <section className="catalog-hero">
-        <ShaderBackground className="catalog-shader" />
+        <div className="catalog-shader sc-hero-grid-bg" aria-hidden />
         <div className="catalog-shader-wash" aria-hidden />
 
         <div className="landing-shell catalog-hero-inner">

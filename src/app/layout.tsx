@@ -2,6 +2,7 @@ import { ClerkProvider } from '@clerk/nextjs';
 import { esES } from '@clerk/localizations';
 import type { Metadata, Viewport } from 'next';
 import { Kanit } from 'next/font/google';
+import { Toaster } from 'sonner';
 
 import { clerkAppearance } from '@/features/auth/clerk-appearance';
 
@@ -54,7 +55,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <ClerkProvider localization={esES} appearance={clerkAppearance}>
       <html lang="es" className={kanit.variable} suppressHydrationWarning>
-        <body className="min-h-dvh">{children}</body>
+        <body className="min-h-dvh">{children}
+          <Toaster position="top-right" offset={20} />
+        </body>
       </html>
     </ClerkProvider>
   );
