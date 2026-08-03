@@ -4,6 +4,8 @@ import type { Metadata, Viewport } from 'next';
 import { Kanit } from 'next/font/google';
 import { Toaster } from 'sonner';
 
+import { WhatsappButton } from '@/components/whatsapp-button';
+
 import { clerkAppearance } from '@/features/auth/clerk-appearance';
 
 import './globals.css';
@@ -56,6 +58,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <ClerkProvider localization={esES} appearance={clerkAppearance}>
       <html lang="es" className={kanit.variable} suppressHydrationWarning>
         <body className="min-h-dvh">{children}
+          <WhatsappButton />
           <Toaster position="top-right" offset={20} />
         </body>
       </html>

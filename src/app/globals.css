@@ -3090,3 +3090,52 @@
     line-height: 1.35;
   }
 }
+
+@layer components {
+  /* Botón flotante de WhatsApp. Presente en toda la aplicación. */
+  .sc-wa {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 60;
+    display: grid;
+    width: 56px;
+    height: 56px;
+    place-items: center;
+    border: 2px solid #050505;
+    border-radius: 50%;
+    background: #25d366;
+    color: #050505;
+    box-shadow: 4px 4px 0 #050505;
+    transition:
+      transform 150ms ease,
+      box-shadow 150ms ease;
+  }
+
+  .sc-wa:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0 #050505;
+  }
+
+  .sc-wa svg {
+    width: 28px;
+    height: 28px;
+    fill: currentColor;
+  }
+
+  /* En móvil se sube: abajo a la derecha es justo donde el navegador pone su
+     barra de herramientas y donde el pulgar ya tiene otros controles. */
+  @media (max-width: 600px) {
+    .sc-wa {
+      right: 14px;
+      bottom: 76px;
+      width: 50px;
+      height: 50px;
+    }
+
+    .sc-wa svg {
+      width: 25px;
+      height: 25px;
+    }
+  }
+}
