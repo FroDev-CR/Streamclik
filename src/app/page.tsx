@@ -67,15 +67,10 @@ const STEPS = [
   },
 ] as const;
 
-/**
- * La disponibilidad del catálogo se revalida cada cinco minutos.
- *
- * Es el equilibrio entre dos cosas que importan: la portada es la página más
- * visitada y no debería consultar la base de datos en cada visita, pero un
- * contador de cupos que miente deja de ser creíble en cuanto alguien intenta
- * comprar. Cinco minutos es más rápido de lo que cambia el inventario real.
- */
-export const revalidate = 300;
+// La portada funciona también como catálogo y consulta el inventario vigente
+// para reflejar desde la siguiente carga los cambios de plataformas, cupos,
+// precios y combos realizados por el administrador.
+export const dynamic = "force-dynamic";
 
 export default async function LandingPage() {
   const [catalogo, combos] = await Promise.all([getPublicCatalog(), getPublicCombos()]);
