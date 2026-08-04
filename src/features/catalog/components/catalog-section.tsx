@@ -1,5 +1,7 @@
-import Link from 'next/link';
-import { Check, Zap } from 'lucide-react';
+import { Check } from 'lucide-react';
+
+import { PlatformIcon } from '@/components/platform-icon';
+import { AddToCartButton } from '@/features/cart/components/add-to-cart-button';
 
 import { formatPrice, type CatalogItem } from '../queries';
 
@@ -61,8 +63,12 @@ export function CatalogSection({ items }: { items: CatalogItem[] }) {
                 className={`catalogo-card${agotado ? ' catalogo-card-agotado' : ''}`}
               >
                 <div className="catalogo-card-top">
-                  <span className="catalogo-mark" style={{ backgroundColor: item.color }}>
-                    {item.nombre.charAt(0)}
+                  <span className="catalogo-mark">
+                    <PlatformIcon
+                      iconKey={item.icono}
+                      name={item.nombre}
+                      className="catalogo-platform-icon"
+                    />
                   </span>
 
                   <span className={`catalogo-stock${agotado ? ' catalogo-stock-agotado' : ''}`}>
@@ -107,14 +113,12 @@ export function CatalogSection({ items }: { items: CatalogItem[] }) {
                     Sin cupos ahora
                   </span>
                 ) : (
-                  // Lleva directo a la compra, no al registro. Quien no tenga
-                  // sesión pasa igualmente por Clerk —el middleware protege
-                  // `/comprar`— y vuelve a esta misma pantalla al entrar, así
-                  // que el registro deja de ser un desvío y se convierte en un
-                  // trámite dentro de la compra.
-                  <Link href={`/comprar/${item.slug}`} className="catalogo-cta">
-                    <Zap aria-hidden /> Lo quiero
-                  </Link>
+                  <AddToCartButton
+                    productType="service"
+                    slug={item.slug}
+                    label="Agregar al carrito"
+                    className="catalogo-cta"
+                  />
                 )}
               </li>
             );

@@ -3,16 +3,20 @@
 import { Check, ShoppingCart } from 'lucide-react';
 import { useState } from 'react';
 
+import { cn } from '@/lib/utils';
+
 import { addCartItem, type CartProductType } from '../storage';
 
 export function AddToCartButton({
   productType,
   slug,
   label,
+  className,
 }: {
   productType: CartProductType;
   slug: string;
   label: string;
+  className?: string;
 }) {
   const [added, setAdded] = useState(false);
 
@@ -23,7 +27,7 @@ export function AddToCartButton({
   }
 
   return (
-    <button type="button" className="catalog-buy-button" onClick={add}>
+    <button type="button" className={cn('catalog-buy-button', className)} onClick={add}>
       {added ? (
         <>
           Agregado <Check aria-hidden />

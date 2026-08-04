@@ -3,7 +3,7 @@ export const PLATFORM_ICON_OPTIONS = [
   { key: 'generic', label: 'Genérico', src: '/icon.svg' },
   { key: 'netflix', label: 'Netflix', src: '/platform-icons/netflix.svg' },
   { key: 'disney_plus', label: 'Disney+', src: '/platform-icons/disney_plus.svg' },
-  { key: 'max', label: 'Max', src: '/platform-icons/max.svg' },
+  { key: 'max', label: 'HBO Max', src: '/platform-icons/hbo-max.png' },
   { key: 'prime_video', label: 'Prime Video', src: '/platform-icons/prime_video.svg' },
   { key: 'paramount_plus', label: 'Paramount+', src: '/platform-icons/paramount_plus.svg' },
   { key: 'apple_tv', label: 'Apple TV+', src: '/platform-icons/apple_tv.svg' },
