@@ -32,6 +32,17 @@ const createAccountSchema = z.object({
   maxProfiles: z.coerce.number().int().min(1).max(10),
 });
 
+const updateAccountSchema = z.object({
+  accountId: z.string().uuid('Cuenta no válida'),
+  serviceId: z.string().uuid('Selecciona un servicio válido'),
+  label: z.string().trim().min(2, 'Introduce un nombre para la cuenta').max(80),
+  inboxEmail: z.string().trim().toLowerCase().email('Correo de ingesta inválido'),
+  loginEmail: z.string().trim().toLowerCase().email('Correo de acceso inválido'),
+  // Vacía significa «conservar la actual»; nunca se devuelve el texto cifrado al formulario.
+  loginPassword: z.string().max(500, 'La contraseña es demasiado larga').optional(),
+  status: z.enum(['active', 'suspended', 'expired']),
+});
+
 const assignProfileSchema = z.object({
   accountProfileId: z.string().uuid(),
   userId: z.string().uuid(),
@@ -128,6 +139,92 @@ export async function createAccountAction(
   return {
     success: `Cuenta "${parsed.data.label}" creada con ${parsed.data.maxProfiles} perfiles`,
   };
+}
+
+// -----------------------------------------------------------------------------
+
+/** Modifica las credenciales y metadatos de una cuenta sin tocar sus perfiles. */
+export async function updateAccountAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireAdmin();
+
+  const parsed = updateAccountSchema.safeParse({
+    accountId: formData.get('accountId'),
+    serviceId: formData.get('serviceId'),
+    label: formData.get('label'),
+    inboxEmail: formData.get('inboxEmail'),
+    loginEmail: formData.get('loginEmail'),
+    loginPassword: String(formData.get('loginPassword') ?? '') || undefined,
+    status: formData.get('status'),
+  });
+
+  if (!parsed.success) {
+    return { fieldErrors: toFieldErrors(parsed.error.issues) };
+  }
+
+  const inboxEmail = EmailAddress.normalizeForRouting(parsed.data.inboxEmail);
+  const supabase = await createSupabaseServerClient();
+
+  const { data: anterior, error: readError } = await supabase
+    .from('streaming_accounts')
+    .select('service_id, label, inbox_email, login_email, status')
+    .eq('id', parsed.data.accountId)
+    .maybeSingle();
+
+  if (readError || !anterior) {
+    logger.error('No se pudo leer la cuenta antes de modificarla', {
+      accountId: parsed.data.accountId,
+      error: readError?.message,
+    });
+    return { error: 'La cuenta ya no existe o no se pudo leer' };
+  }
+
+  const cambios = {
+    service_id: parsed.data.serviceId,
+    label: parsed.data.label,
+    inbox_email: inboxEmail,
+    login_email: parsed.data.loginEmail,
+    status: parsed.data.status,
+    ...(parsed.data.loginPassword
+      ? { login_password_enc: getCredentialCipher().encrypt(parsed.data.loginPassword) }
+      : {}),
+  };
+
+  const { error } = await supabase
+    .from('streaming_accounts')
+    .update(cambios)
+    .eq('id', parsed.data.accountId);
+
+  if (error) {
+    if (error.code === '23505') {
+      return { error: 'Ya existe otra cuenta con ese correo de ingesta' };
+    }
+    logger.error('Fallo al modificar la cuenta', {
+      accountId: parsed.data.accountId,
+      error: error.message,
+    });
+    return { error: 'No se pudo guardar la cuenta' };
+  }
+
+  // El registro de auditoría no incluye la contraseña ni su valor cifrado.
+  await supabase.from('audit_logs').insert({
+    actor_id: admin.id,
+    action: 'account.updated',
+    entity_type: 'streaming_account',
+    entity_id: parsed.data.accountId,
+    metadata: {
+      previous: anterior,
+      password_changed: Boolean(parsed.data.loginPassword),
+    },
+  });
+
+  revalidatePath('/admin');
+  revalidatePath('/dashboard');
+  revalidatePath('/catalogo');
+
+  return { success: `Cuenta "${parsed.data.label}" actualizada` };
 }
 
 // -----------------------------------------------------------------------------

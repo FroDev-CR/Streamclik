@@ -205,6 +205,7 @@ export interface Database {
           notes?: string | null;
         };
         Update: {
+          service_id?: string;
           label?: string;
           inbox_email?: string;
           login_email?: string;

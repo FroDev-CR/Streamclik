@@ -1,17 +1,41 @@
 'use client';
 
 import { useActionState, useMemo, useState } from 'react';
-import { Check, ChevronDown, Copy, Eye, EyeOff, Inbox, Search, Trash2, UserPlus } from 'lucide-react';
+import { useFormStatus } from 'react-dom';
+import {
+  Check,
+  ChevronDown,
+  Copy,
+  Eye,
+  EyeOff,
+  Inbox,
+  Pencil,
+  Save,
+  Search,
+  Trash2,
+  UserPlus,
+  X,
+} from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Input, Select } from '@/components/ui/input';
+import { Input, Label, Select } from '@/components/ui/input';
 import type { ActionState } from '@/features/shared/action-state';
 import { cn, formatDateTime } from '@/lib/utils';
 
-import { assignProfileAction, deleteAccountAction, revokeAssignmentAction } from '../actions';
-import type { AdminAccountRow, AdminClientOption, AdminProfileRow } from '../queries';
+import {
+  assignProfileAction,
+  deleteAccountAction,
+  revokeAssignmentAction,
+  updateAccountAction,
+} from '../actions';
+import type {
+  AdminAccountRow,
+  AdminClientOption,
+  AdminProfileRow,
+  AdminServiceOption,
+} from '../queries';
 
 /**
  * Banco de cuentas: el inventario completo del operador.
@@ -241,12 +265,171 @@ function AccountPassword({ password }: { password: string | null }) {
   );
 }
 
+function SaveAccountButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button type="submit" size="sm" disabled={pending}>
+      <Save aria-hidden className="size-3.5" strokeWidth={2.5} />
+      {pending ? 'Guardando…' : 'Guardar cambios'}
+    </Button>
+  );
+}
+
+/** Edición en contexto: conserva perfiles, asignaciones y códigos de la cuenta. */
+function EditAccountForm({
+  account,
+  services,
+  onCancel,
+}: {
+  account: AdminAccountRow;
+  services: AdminServiceOption[];
+  onCancel: () => void;
+}) {
+  const [state, formAction] = useActionState<ActionState, FormData>(updateAccountAction, {});
+  const fieldId = (name: string) => `edit-${account.id}-${name}`;
+
+  return (
+    <form
+      action={formAction}
+      className="flex flex-col gap-4 border-b-2 border-[var(--color-border)] bg-[var(--color-brand-yellow)]/12 p-4"
+    >
+      <input type="hidden" name="accountId" value={account.id} />
+
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="font-[family-name:var(--font-display)] text-sm font-black uppercase">
+            Editar cuenta
+          </p>
+          <p className="mt-1 text-xs text-[var(--color-content-muted)]">
+            Los perfiles, clientes e historial permanecerán intactos.
+          </p>
+        </div>
+        <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
+          <X aria-hidden className="size-3.5" strokeWidth={2.5} />
+          Cerrar
+        </Button>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={fieldId('serviceId')}>Plataforma</Label>
+          <Select
+            id={fieldId('serviceId')}
+            name="serviceId"
+            defaultValue={account.serviceId}
+            error={state.fieldErrors?.serviceId}
+            required
+          >
+            {services.length === 0 && (
+              <option value={account.serviceId}>{account.serviceName}</option>
+            )}
+            {services.map((service) => (
+              <option key={service.id} value={service.id}>
+                {service.name}{service.isActive ? '' : ' · desactivada'}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={fieldId('label')}>Nombre interno</Label>
+          <Input
+            id={fieldId('label')}
+            name="label"
+            defaultValue={account.label}
+            error={state.fieldErrors?.label}
+            required
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={fieldId('status')}>Estado</Label>
+          <Select
+            id={fieldId('status')}
+            name="status"
+            defaultValue={account.status}
+            error={state.fieldErrors?.status}
+            required
+          >
+            <option value="active">Activa</option>
+            <option value="suspended">Suspendida</option>
+            <option value="expired">Vencida</option>
+          </Select>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={fieldId('inboxEmail')}>Buzón de códigos</Label>
+          <Input
+            id={fieldId('inboxEmail')}
+            name="inboxEmail"
+            type="email"
+            inputMode="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            defaultValue={account.inboxEmail}
+            error={state.fieldErrors?.inboxEmail}
+            required
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={fieldId('loginEmail')}>Correo de acceso</Label>
+          <Input
+            id={fieldId('loginEmail')}
+            name="loginEmail"
+            type="email"
+            inputMode="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            defaultValue={account.loginEmail}
+            error={state.fieldErrors?.loginEmail}
+            required
+          />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={fieldId('loginPassword')}>Nueva contraseña</Label>
+          <Input
+            id={fieldId('loginPassword')}
+            name="loginPassword"
+            type="password"
+            autoComplete="new-password"
+            placeholder="Déjala vacía para conservarla"
+            error={state.fieldErrors?.loginPassword}
+          />
+        </div>
+      </div>
+
+      {state.error && (
+        <p role="alert" className="text-xs font-semibold text-[var(--color-danger)]">
+          {state.error}
+        </p>
+      )}
+      {state.success && (
+        <p role="status" className="text-xs font-bold text-[var(--color-success)]">
+          {state.success}
+        </p>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <SaveAccountButton />
+        <Button type="button" size="sm" variant="secondary" onClick={onCancel}>
+          Cancelar
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 export function AccountBank({
   accounts,
   clients,
+  services,
 }: {
   accounts: AdminAccountRow[];
   clients: AdminClientOption[];
+  services: AdminServiceOption[];
 }) {
   const [state, formAction] = useActionState<ActionState, FormData>(assignProfileAction, {});
   const [busqueda, setBusqueda] = useState('');
@@ -347,6 +530,7 @@ export function AccountBank({
           key={account.id}
           account={account}
           clients={clients}
+          services={services}
           state={state}
           formAction={formAction}
         />
@@ -370,15 +554,18 @@ export function AccountBank({
 function AccountCard({
   account,
   clients,
+  services,
   state,
   formAction,
 }: {
   account: AdminAccountRow;
   clients: AdminClientOption[];
+  services: AdminServiceOption[];
   state: ActionState;
   formAction: (formData: FormData) => void;
 }) {
   const [confirmando, setConfirmando] = useState(false);
+  const [editando, setEditando] = useState(false);
   const [abierta, setAbierta] = useState(false);
 
   const ocupados = account.profiles.filter((p) => p.assignment !== null).length;
@@ -432,20 +619,49 @@ function AccountCard({
             {ocupados}/{total}
           </Badge>
           <Badge tone={account.status === 'active' ? 'success' : 'warning'}>
-            {account.status === 'active' ? 'Activa' : account.status}
+            {account.status === 'active'
+              ? 'Activa'
+              : account.status === 'suspended'
+                ? 'Suspendida'
+                : 'Vencida'}
           </Badge>
 
           <Button
             type="button"
             size="sm"
             variant="ghost"
-            onClick={() => setConfirmando(true)}
+            onClick={() => {
+              setEditando(true);
+              setConfirmando(false);
+            }}
+            aria-label={`Editar la cuenta ${account.label}`}
+          >
+            <Pencil aria-hidden className="size-4" strokeWidth={2.5} />
+            <span className="hidden sm:inline">Editar</span>
+          </Button>
+
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              setConfirmando(true);
+              setEditando(false);
+            }}
             aria-label={`Eliminar la cuenta ${account.label}`}
           >
             <Trash2 aria-hidden className="size-4" strokeWidth={2.5} />
           </Button>
         </div>
       </div>
+
+      {editando && (
+        <EditAccountForm
+          account={account}
+          services={services}
+          onCancel={() => setEditando(false)}
+        />
+      )}
 
       {confirmando && <ConfirmDelete account={account} onCancel={() => setConfirmando(false)} />}
 

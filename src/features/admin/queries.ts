@@ -27,6 +27,7 @@ export interface AdminServiceOption {
   id: string;
   name: string;
   slug: string;
+  isActive: boolean;
 }
 
 export interface AdminClientOption {
@@ -50,6 +51,7 @@ export interface AdminProfileRow {
 
 export interface AdminAccountRow {
   id: string;
+  serviceId: string;
   label: string;
   inboxEmail: string;
   loginEmail: string;
@@ -149,14 +151,19 @@ export async function getRecentInboundEmails(limit = 15): Promise<QueryResult<In
   };
 }
 
-export async function getServiceOptions(): Promise<QueryResult<AdminServiceOption[]>> {
+export async function getServiceOptions(
+  includeInactive = false,
+): Promise<QueryResult<AdminServiceOption[]>> {
   const supabase = await createSupabaseServerClient();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('streaming_services')
-    .select('id, name, slug')
-    .eq('is_active', true)
+    .select('id, name, slug, is_active')
     .order('name');
+
+  if (!includeInactive) query = query.eq('is_active', true);
+
+  const { data, error } = await query;
 
   if (error) {
     logger.error('No se pudo leer el catálogo de servicios', {
@@ -165,7 +172,15 @@ export async function getServiceOptions(): Promise<QueryResult<AdminServiceOptio
     return { data: [], error: error.message };
   }
 
-  return { data: data ?? [], error: null };
+  return {
+    data: (data ?? []).map((service) => ({
+      id: service.id,
+      name: service.name,
+      slug: service.slug,
+      isActive: service.is_active,
+    })),
+    error: null,
+  };
 }
 
 /**
@@ -224,7 +239,7 @@ export async function getAdminAccounts(): Promise<QueryResult<AdminAccountRow[]>
     .from('streaming_accounts')
     .select(
       `
-      id, label, inbox_email, login_email, login_password_enc, status, max_profiles,
+      id, service_id, label, inbox_email, login_email, login_password_enc, status, max_profiles,
       streaming_services ( name, brand_color ),
       account_profiles (
         id, label, slot_index,
@@ -249,6 +264,7 @@ export async function getAdminAccounts(): Promise<QueryResult<AdminAccountRow[]>
 
   type NestedRow = {
     id: string;
+    service_id: string;
     label: string;
     inbox_email: string;
     login_email: string;
@@ -273,6 +289,7 @@ export async function getAdminAccounts(): Promise<QueryResult<AdminAccountRow[]>
   return {
     data: (data as unknown as NestedRow[]).map((account) => ({
       id: account.id,
+      serviceId: account.service_id,
       label: account.label,
       inboxEmail: account.inbox_email,
       loginEmail: account.login_email,

@@ -5,7 +5,7 @@ import { AlertTriangle, Boxes, Plus, Sparkles, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { requireAdmin } from '@/features/auth/session';
 import { AccountBank } from '@/features/admin/components/account-bank';
-import { getAdminAccounts, getClientOptions } from '@/features/admin/queries';
+import { getAdminAccounts, getClientOptions, getServiceOptions } from '@/features/admin/queries';
 
 export const metadata: Metadata = { title: 'Banco de cuentas' };
 
@@ -50,13 +50,18 @@ function Metrica({
 export default async function AdminPage() {
   await requireAdmin();
 
-  const [clientes, inventario] = await Promise.all([getClientOptions(), getAdminAccounts()]);
+  const [clientes, inventario, servicios] = await Promise.all([
+    getClientOptions(),
+    getAdminAccounts(),
+    // En edición también se muestra la plataforma actual aunque se haya ocultado del catálogo.
+    getServiceOptions(true),
+  ]);
 
   // Los fallos de consulta se muestran en pantalla en lugar de degradar a una
   // lista vacía: un inventario vacío por error es indistinguible de uno vacío de
   // verdad, y esa ambigüedad hizo que "la cuenta se crea pero no aparece"
   // resultara imposible de diagnosticar.
-  const fallos = [clientes.error, inventario.error].filter(
+  const fallos = [clientes.error, inventario.error, servicios.error].filter(
     (mensaje): mensaje is string => Boolean(mensaje),
   );
 
@@ -115,7 +120,7 @@ export default async function AdminPage() {
         <Metrica icono={Sparkles} valor={libres} etiqueta="Perfiles libres" destacado={libres > 0} />
       </div>
 
-      <AccountBank accounts={cuentas} clients={clientes.data} />
+      <AccountBank accounts={cuentas} clients={clientes.data} services={servicios.data} />
     </div>
   );
 }
