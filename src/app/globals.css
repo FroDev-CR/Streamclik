@@ -465,13 +465,13 @@
     padding: clamp(28px, 4vw, 46px);
     border: 3px solid var(--landing-black);
     border-radius: 24px;
-    background: var(--landing-blue);
-    color: #fff;
+    background: #fff;
+    color: var(--landing-black);
     box-shadow: 10px 10px 0 var(--landing-black);
   }
 
   .catalog-combo-card:nth-child(even) {
-    background: var(--landing-yellow);
+    background: #fff;
     color: var(--landing-black);
   }
 
@@ -498,28 +498,32 @@
   .catalog-combo-apps {
     display: flex;
     flex-wrap: wrap;
-    gap: 9px;
-    margin-top: 28px;
+    gap: 12px;
+    margin-top: 30px;
   }
 
   .catalog-combo-apps span {
     display: inline-flex;
+    min-height: 64px;
     align-items: center;
-    gap: 7px;
-    padding: 7px 10px;
-    border: 1px solid currentColor;
-    border-radius: 9px;
-    font-size: 0.76rem;
+    gap: 10px;
+    padding: 7px 12px 7px 7px;
+    border: 2px solid var(--landing-black);
+    border-radius: 12px;
+    background: #fff;
+    color: var(--landing-black);
+    font-size: 0.8rem;
     font-weight: 800;
   }
 
   .catalog-combo-apps img {
-    width: 18px;
-    height: 18px;
+    width: 48px !important;
+    height: 48px !important;
+    flex: 0 0 48px;
     object-fit: contain;
-    border-radius: 4px;
-    background: #fff;
-    padding: 2px;
+    border-radius: 9px;
+    background: var(--landing-cream);
+    padding: 4px;
   }
 
   .catalog-combo-card h3,
