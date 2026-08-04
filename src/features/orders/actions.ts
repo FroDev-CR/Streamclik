@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
+import { sendOrderDeliveryEmail } from '@/infrastructure/email/resend-delivery-email';
 import { createSupabaseServerClient } from '@/infrastructure/supabase/server';
 import { requireAdmin, requireUser } from '@/features/auth/session';
 import type { ActionState } from '@/features/shared/action-state';
@@ -523,11 +524,26 @@ export async function soltarCuentaAction(
   // así es lo que le indica qué hacer a continuación.
   switch (resultado.status) {
     case 'entregado':
+    case 'ya_entregado': {
+      // El correo es un efecto posterior a la transacción: si Resend falla, la
+      // asignación no se revierte ni se entrega dos veces. Un segundo clic cae
+      // en `ya_entregado` y reintenta sólo la notificación; la clave idempotente
+      // de Resend evita duplicados si la primera respuesta se perdió.
+      const email = await sendOrderDeliveryEmail(parsed.data.orderId);
+
+      if (email.status === 'sent') {
+        return {
+          success:
+            resultado.status === 'entregado'
+              ? `Compra entregada y datos enviados a ${email.recipient}.`
+              : `El pedido ya estaba entregado. Datos enviados a ${email.recipient}.`,
+        };
+      }
+
       return {
-        success: 'Compra entregada. El cliente ya ve todos sus perfiles.',
+        error: `La compra sí quedó entregada, pero el correo quedó pendiente: ${email.message}. Corrige la configuración y vuelve a pulsar «Soltar compra» para reintentarlo.`,
       };
-    case 'ya_entregado':
-      return { success: 'Este pedido ya estaba entregado.' };
+    }
     case 'sin_cupos':
       return {
         error: 'Falta al menos un perfil para completar la compra. Añade inventario al banco.',

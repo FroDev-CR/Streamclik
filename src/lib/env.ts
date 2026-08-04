@@ -46,6 +46,15 @@ const serverSchema = z.object({
     .string()
     .regex(/^[0-9a-fA-F]{64}$/, 'CREDENTIALS_ENCRYPTION_KEY debe ser 64 caracteres hexadecimales (32 bytes)'),
 
+  /**
+   * Resend se usa únicamente desde el servidor para mandar las credenciales
+   * después de una entrega. La clave es opcional para que una instalación
+   * nueva pueda arrancar antes de configurar el proveedor; la acción de entrega
+   * informa al administrador si el correo quedó pendiente.
+   */
+  RESEND_API_KEY: z.string().startsWith('re_', 'RESEND_API_KEY debe empezar por re_').optional(),
+  RESEND_FROM_EMAIL: z.string().email().default('cuentas@streamclick.xyz'),
+
   NEXT_PUBLIC_SITE_URL: z.string().url().default('http://localhost:3000'),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 });
