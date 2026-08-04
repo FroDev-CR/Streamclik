@@ -28,6 +28,7 @@ export interface CatalogComboService {
   nombre: string;
   color: string;
   icono: string;
+  cantidad: number;
 }
 
 export interface CatalogCombo {
@@ -88,7 +89,10 @@ export async function getPublicCombos(): Promise<CatalogCombo[]> {
       precio: Number(combo.precio),
       disponibles: Number(combo.disponibles),
       servicios: Array.isArray(combo.servicios)
-        ? (combo.servicios as unknown as CatalogComboService[])
+        ? (combo.servicios as unknown as CatalogComboService[]).map((service) => ({
+            ...service,
+            cantidad: Math.max(1, Number(service.cantidad ?? 1)),
+          }))
         : [],
     }));
   } catch (causa) {

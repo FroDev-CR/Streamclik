@@ -43,7 +43,9 @@ export default async function ComprarComboPage({ params }: { params: Promise<{ s
         sinpeNumber={datosPago.sinpeNumber}
         sinpeName={datosPago.sinpeName}
         instructions={datosPago.instructions}
-        includedServices={combo.services.map((service) => service.name)}
+        includedServices={combo.services.flatMap((service) =>
+          Array.from({ length: service.quantity }, () => service.name),
+        )}
       />
     </div>
   );

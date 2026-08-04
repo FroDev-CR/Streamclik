@@ -303,6 +303,7 @@ export async function getComboBySlug(slug: string) {
     .select(
       `id, name, slug, tagline, price_amount, price_currency,
        streaming_combo_items (
+         quantity,
          streaming_services ( id, name, slug, brand_color, is_active )
        )`,
     )
@@ -314,6 +315,7 @@ export async function getComboBySlug(slug: string) {
 
   type ComboRow = typeof data & {
     streaming_combo_items: Array<{
+      quantity: number;
       streaming_services: {
         id: string;
         name: string;
@@ -326,9 +328,12 @@ export async function getComboBySlug(slug: string) {
 
   const combo = data as unknown as ComboRow;
   const services = combo.streaming_combo_items
-    .map((item) => item.streaming_services)
-    .filter((service): service is NonNullable<typeof service> => Boolean(service?.is_active));
+    .filter((item) => Boolean(item.streaming_services?.is_active))
+    .map((item) => ({
+      ...item.streaming_services!,
+      quantity: Number(item.quantity),
+    }));
 
-  if (services.length < 2) return null;
+  if (services.reduce((total, service) => total + service.quantity, 0) < 2) return null;
   return { ...combo, services };
 }

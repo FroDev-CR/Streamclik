@@ -58,8 +58,8 @@ export function ComboManager({
           Combos
         </h2>
         <p className="mt-2 max-w-xl text-sm text-[var(--color-content-muted)]">
-          Agrupa dos o más aplicaciones, define un único precio mensual y publícalo en la sección
-          “¡Combos!” del catálogo.
+          Agrupa dos o más perfiles, aunque sean de la misma aplicación, define un único precio
+          mensual y publícalo en la sección “¡Combos!” del catálogo.
         </p>
       </header>
 
@@ -96,26 +96,49 @@ export function ComboManager({
               </div>
 
               <fieldset className="flex flex-col gap-2">
-                <legend className="mb-1 text-sm font-semibold">Aplicaciones incluidas</legend>
+                <legend className="mb-1 text-sm font-semibold">Perfiles incluidos</legend>
                 {platforms.map((platform) => (
-                  <label
+                  <div
                     key={platform.id}
-                    className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-[var(--color-border)] px-3 py-2.5 transition-colors has-[:checked]:bg-[var(--color-brand-yellow)]"
+                    className="flex items-center gap-3 rounded-xl border-2 border-[var(--color-border)] px-3 py-2.5 transition-colors has-[input[type=checkbox]:checked]:bg-[var(--color-brand-yellow)]"
                   >
                     <input
+                      id={`combo-service-${platform.id}`}
                       type="checkbox"
                       name="serviceIds"
                       value={platform.id}
-                      className="size-4 accent-black"
+                      className="size-4 shrink-0 accent-black"
                     />
                     <span
                       aria-hidden
-                      className="size-3 rounded-full border border-black"
+                      className="size-3 shrink-0 rounded-full border border-black"
                       style={{ backgroundColor: platform.brandColor }}
                     />
-                    <span className="min-w-0 flex-1 text-sm font-semibold">{platform.name}</span>
+                    <label
+                      htmlFor={`combo-service-${platform.id}`}
+                      className="min-w-0 flex-1 cursor-pointer text-sm font-semibold"
+                    >
+                      {platform.name}
+                    </label>
                     {!platform.isActive && <Badge tone="neutral">Oculta</Badge>}
-                  </label>
+                    <label
+                      htmlFor={`combo-quantity-${platform.id}`}
+                      className="text-[0.65rem] font-extrabold uppercase tracking-wide text-[var(--color-content-muted)]"
+                    >
+                      Perfiles
+                    </label>
+                    <input
+                      id={`combo-quantity-${platform.id}`}
+                      name={`serviceQuantity:${platform.id}`}
+                      type="number"
+                      min={1}
+                      max={10}
+                      step={1}
+                      defaultValue={1}
+                      aria-label={`Cantidad de perfiles de ${platform.name}`}
+                      className="h-9 w-14 rounded-lg border-2 border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-center text-sm font-bold"
+                    />
+                  </div>
                 ))}
                 {state.fieldErrors?.serviceIds && (
                   <p className="text-xs font-semibold text-[var(--color-danger)]">
@@ -212,6 +235,7 @@ export function ComboManager({
                       style={{ backgroundColor: service.brandColor }}
                     />
                     {service.name}
+                    {service.quantity > 1 && ` ×${service.quantity}`}
                   </span>
                 ))}
               </div>

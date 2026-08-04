@@ -495,6 +495,7 @@ export interface AdminComboRow {
     name: string;
     slug: string;
     brandColor: string;
+    quantity: number;
   }>;
 }
 
@@ -564,6 +565,7 @@ export async function getAdminCombos(): Promise<QueryResult<AdminComboRow[]>> {
     .select(
       `id, slug, name, tagline, price_amount, price_currency, is_active,
        streaming_combo_items (
+         quantity,
          streaming_services ( id, name, slug, brand_color )
        )`,
     )
@@ -583,6 +585,7 @@ export async function getAdminCombos(): Promise<QueryResult<AdminComboRow[]>> {
     price_currency: string;
     is_active: boolean;
     streaming_combo_items: Array<{
+      quantity: number;
       streaming_services: {
         id: string;
         name: string;
@@ -602,13 +605,13 @@ export async function getAdminCombos(): Promise<QueryResult<AdminComboRow[]>> {
       priceCurrency: fila.price_currency,
       isActive: fila.is_active,
       services: fila.streaming_combo_items
-        .map((item) => item.streaming_services)
-        .filter((service): service is NonNullable<typeof service> => Boolean(service))
-        .map((service) => ({
-          id: service.id,
-          name: service.name,
-          slug: service.slug,
-          brandColor: service.brand_color,
+        .filter((item) => Boolean(item.streaming_services))
+        .map((item) => ({
+          id: item.streaming_services!.id,
+          name: item.streaming_services!.name,
+          slug: item.streaming_services!.slug,
+          brandColor: item.streaming_services!.brand_color,
+          quantity: Number(item.quantity),
         }))
         .sort((a, b) => a.name.localeCompare(b.name, 'es')),
     })),

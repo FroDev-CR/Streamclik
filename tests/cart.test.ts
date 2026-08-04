@@ -7,6 +7,10 @@ const MIGRATION = readFileSync(
   'supabase/migrations/20260804001500_cart_orders.sql',
   'utf8',
 );
+const COMBO_QUANTITIES_MIGRATION = readFileSync(
+  'supabase/migrations/20260804001700_combo_profile_quantities.sql',
+  'utf8',
+);
 
 describe('carrito local', () => {
   it('consolida el mismo producto y suma cantidades', () => {
@@ -51,5 +55,24 @@ describe('entrega de carrito', () => {
 
   it('genera una sola recompensa por pedido completo', () => {
     expect(MIGRATION.match(/insert into public\.profile_rewards/g)).toHaveLength(1);
+  });
+
+  it('entrega varios perfiles de la misma app sin repetir el mismo slot', () => {
+    expect(COMBO_QUANTITIES_MIGRATION).toContain('add column quantity');
+    expect(COMBO_QUANTITIES_MIGRATION).toContain(
+      'generate_series(1, combo_item.quantity)',
+    );
+    expect(COMBO_QUANTITIES_MIGRATION).toContain(
+      'generate_series(1, item.quantity * combo_item.quantity)',
+    );
+    expect(COMBO_QUANTITIES_MIGRATION).toContain('not (ap.id = any(v_profile_ids))');
+  });
+
+  it('reduce los combos disponibles según la cantidad interna requerida', () => {
+    expect(COMBO_QUANTITIES_MIGRATION).toContain(
+      'min(coalesce(stock.disponibles, 0) / item.quantity)',
+    );
+    expect(COMBO_QUANTITIES_MIGRATION).toContain("'cantidad', item.quantity");
+    expect(COMBO_QUANTITIES_MIGRATION).toContain('having sum(item.quantity) >= 2');
   });
 });

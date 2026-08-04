@@ -182,8 +182,49 @@
     stroke-width: 2.5;
   }
 
+  .catalog-availability-cue {
+    display: flex;
+    width: fit-content;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin: 38px auto 0;
+    color: #fff;
+    font-family: var(--font-display);
+    font-size: 0.9rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-decoration: none;
+    text-transform: uppercase;
+  }
+
+  .catalog-availability-cue svg {
+    width: 46px;
+    height: 46px;
+    color: var(--landing-yellow);
+    stroke-width: 3.5;
+    animation: catalog-arrow-bounce 1.5s ease-in-out infinite;
+  }
+
+  .catalog-availability-cue:hover svg {
+    animation-play-state: paused;
+    transform: translateY(5px);
+  }
+
+  @keyframes catalog-arrow-bounce {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(8px);
+    }
+  }
+
   .catalog-products {
     padding-block: clamp(84px, 9vw, 140px);
+    scroll-margin-top: 24px;
   }
 
   .catalog-section-header {
@@ -1082,6 +1123,16 @@
       font-size: clamp(3.2rem, 14vw, 5rem);
     }
 
+    .catalog-availability-cue {
+      margin-top: 30px;
+      font-size: 0.78rem;
+    }
+
+    .catalog-availability-cue svg {
+      width: 40px;
+      height: 40px;
+    }
+
     .catalog-hero-trust {
       display: grid;
     }
@@ -1210,8 +1261,10 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .catalog-availability-cue svg,
     .catalog-buy-button,
     .auth-clerk-submit {
+      animation: none !important;
       transition: none !important;
     }
   }

@@ -571,7 +571,7 @@ const comboSchema = z.object({
     .max(160, 'Máximo 160 caracteres')
     .optional()
     .transform((value) => value || null),
-  serviceIds: z.array(z.string().uuid()).min(2, 'Elige al menos dos aplicaciones'),
+  serviceIds: z.array(z.string().uuid()).min(1, 'Elige al menos una aplicación'),
 });
 
 /** Crea un combo y sus aplicaciones como una única configuración de catálogo. */
@@ -594,8 +594,21 @@ export async function createComboAction(
   }
 
   const serviceIds = [...new Set(parsed.data.serviceIds)];
-  if (serviceIds.length < 2) {
-    return { fieldErrors: { serviceIds: 'Elige al menos dos aplicaciones' } };
+  const comboItems = serviceIds.map((serviceId) => ({
+    serviceId,
+    quantity: Number(formData.get(`serviceQuantity:${serviceId}`) ?? 1),
+  }));
+
+  if (comboItems.some((item) => !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 10)) {
+    return { fieldErrors: { serviceIds: 'Cada cantidad debe estar entre 1 y 10 perfiles' } };
+  }
+
+  if (comboItems.reduce((total, item) => total + item.quantity, 0) < 2) {
+    return {
+      fieldErrors: {
+        serviceIds: 'Agrega al menos dos perfiles; pueden ser de la misma aplicación',
+      },
+    };
   }
 
   const supabase = await createSupabaseServerClient();
@@ -623,9 +636,10 @@ export async function createComboAction(
   }
 
   const { error: itemsError } = await supabase.from('streaming_combo_items').insert(
-    serviceIds.map((serviceId) => ({
+    comboItems.map((item) => ({
       combo_id: combo.id,
-      service_id: serviceId,
+      service_id: item.serviceId,
+      quantity: item.quantity,
     })),
   );
 

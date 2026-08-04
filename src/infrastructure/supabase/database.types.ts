@@ -156,13 +156,17 @@ export interface Database {
         Row: {
           combo_id: string;
           service_id: string;
+          quantity: number;
           created_at: string;
         };
         Insert: {
           combo_id: string;
           service_id: string;
+          quantity?: number;
         };
-        Update: NoUpdates;
+        Update: {
+          quantity?: number;
+        };
         Relationships: [
           {
             foreignKeyName: 'streaming_combo_items_combo_id_fkey';

@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
+  ArrowDown,
   ArrowLeft,
   ArrowRight,
   BadgeCheck,
@@ -106,10 +107,19 @@ export default async function CatalogPage() {
               </span>
             </div>
           </div>
+
+          <Link href="#plataformas-disponibles" className="catalog-availability-cue">
+            <span>Plataformas disponibles</span>
+            <ArrowDown aria-hidden />
+          </Link>
         </div>
       </section>
 
-      <section className="catalog-products" aria-labelledby="catalog-products-title">
+      <section
+        className="catalog-products"
+        id="plataformas-disponibles"
+        aria-labelledby="catalog-products-title"
+      >
         <div className="landing-shell">
           <div className="catalog-section-header">
             <div>
@@ -219,6 +229,7 @@ export default async function CatalogPage() {
                           <span key={servicio.slug}>
                             <PlatformIcon iconKey={servicio.icono} name={servicio.nombre} />
                             {servicio.nombre}
+                            {servicio.cantidad > 1 && ` ×${servicio.cantidad}`}
                           </span>
                         ))}
                       </div>
