@@ -37,6 +37,10 @@ export const metadata: Metadata = {
   },
   description:
     'Elige tu plataforma, compra y recibe tu perfil automáticamente. Sin chats ni esperas.',
+  icons: {
+    icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
+    shortcut: '/icon.svg',
+  },
   openGraph: {
     type: 'website',
     locale: 'es_CR',

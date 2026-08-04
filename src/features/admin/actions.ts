@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
 import { EmailAddress } from '@/core/domain/value-objects/email-address';
+import { isPlatformIconKey } from '@/features/catalog/platform-icons';
 import { makeAssignProfileUseCase, makeRevokeAssignmentUseCase } from '@/infrastructure/container';
 import { getCredentialCipher } from '@/infrastructure/crypto/credential-cipher';
 import { createSupabaseServerClient } from '@/infrastructure/supabase/server';
@@ -372,6 +373,9 @@ const plataformaSchema = z.object({
     .string()
     .trim()
     .regex(/^#[0-9a-fA-F]{6}$/, 'El color debe ser hexadecimal, como #E50914'),
+  iconKey: z
+    .string()
+    .refine(isPlatformIconKey, 'Selecciona un icono válido'),
   priceAmount: z.coerce.number().min(0, 'El precio no puede ser negativo').max(1_000_000),
   tagline: z
     .string()
@@ -418,6 +422,7 @@ export async function createPlatformAction(
     name: formData.get('name'),
     slug: formData.get('slug'),
     brandColor: formData.get('brandColor'),
+    iconKey: formData.get('iconKey'),
     priceAmount: formData.get('priceAmount'),
     tagline: formData.get('tagline'),
     senderDomains: formData.get('senderDomains'),
@@ -433,6 +438,7 @@ export async function createPlatformAction(
     slug: parsed.data.slug,
     name: parsed.data.name,
     brand_color: parsed.data.brandColor,
+    icon_key: parsed.data.iconKey,
     price_amount: parsed.data.priceAmount,
     tagline: parsed.data.tagline,
     sender_domains: parsed.data.senderDomains,
@@ -469,6 +475,7 @@ export async function updatePlatformAction(
     serviceId: formData.get('serviceId'),
     name: formData.get('name'),
     brandColor: formData.get('brandColor'),
+    iconKey: formData.get('iconKey'),
     priceAmount: formData.get('priceAmount'),
     tagline: formData.get('tagline'),
     senderDomains: formData.get('senderDomains'),
@@ -481,7 +488,7 @@ export async function updatePlatformAction(
   const supabase = await createSupabaseServerClient();
   const { data: anterior, error: readError } = await supabase
     .from('streaming_services')
-    .select('slug, name, brand_color, price_amount, tagline, sender_domains')
+    .select('slug, name, brand_color, icon_key, price_amount, tagline, sender_domains')
     .eq('id', parsed.data.serviceId)
     .maybeSingle();
 
@@ -498,6 +505,7 @@ export async function updatePlatformAction(
     .update({
       name: parsed.data.name,
       brand_color: parsed.data.brandColor,
+      icon_key: parsed.data.iconKey,
       price_amount: parsed.data.priceAmount,
       tagline: parsed.data.tagline,
       sender_domains: parsed.data.senderDomains,

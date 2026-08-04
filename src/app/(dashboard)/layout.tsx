@@ -7,6 +7,7 @@ import {
   LogOut,
   Settings,
   ShoppingBag,
+  ShoppingCart,
   UserRound,
   Users,
   Wallet,
@@ -43,6 +44,7 @@ const NAV_CLIENTE = [
   { href: '/dashboard', icono: LayoutGrid, etiqueta: 'Mis suscripciones' },
   { href: '/perfil', icono: UserRound, etiqueta: 'Mi perfil' },
   { href: '/catalogo', icono: ShoppingBag, etiqueta: 'Comprar más' },
+  { href: '/carrito', icono: ShoppingCart, etiqueta: 'Carrito' },
 ] as const;
 
 const NAV_ADMIN = [

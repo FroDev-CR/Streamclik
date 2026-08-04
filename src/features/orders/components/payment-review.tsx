@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
+import { PlatformIcon } from '@/components/platform-icon';
 import type { ActionState } from '@/features/shared/action-state';
 import { formatDateTime, formatRelativeTime } from '@/lib/utils';
 
@@ -35,7 +36,7 @@ function BotonSoltar() {
       ) : (
         <>
           <Rocket aria-hidden className="size-4" strokeWidth={2.5} />
-          Soltar cuenta
+          Soltar compra
         </>
       )}
     </Button>
@@ -102,12 +103,8 @@ function PedidoPendiente({ order }: { order: AdminOrderRow }) {
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
-            <span
-              aria-hidden
-              className="flex size-10 shrink-0 items-center justify-center rounded-xl border-2 border-[var(--color-border)] font-[family-name:var(--font-display)] font-black text-white"
-              style={{ backgroundColor: order.brandColor }}
-            >
-              {order.serviceName.charAt(0)}
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl border-2 border-[var(--color-border)] bg-white">
+              <PlatformIcon iconKey={order.iconKey} name={order.serviceName} className="size-6" />
             </span>
 
             <div className="min-w-0">
@@ -132,6 +129,19 @@ function PedidoPendiente({ order }: { order: AdminOrderRow }) {
             )}
           </div>
         </div>
+
+        <ul className="grid gap-2 sm:grid-cols-2">
+          {order.items.map((item) => (
+            <li
+              key={`${item.productType}:${item.slug}`}
+              className="flex items-center gap-2 rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-canvas)] px-3 py-2"
+            >
+              <PlatformIcon iconKey={item.iconKey} name={item.name} className="size-5" />
+              <span className="min-w-0 flex-1 truncate text-xs font-bold">{item.name}</span>
+              <Badge tone="neutral">×{item.quantity}</Badge>
+            </li>
+          ))}
+        </ul>
 
         {order.receiptNote && (
           <p className="rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-canvas)] px-3 py-2 text-xs">

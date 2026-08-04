@@ -83,6 +83,7 @@ export interface Database {
           slug: string;
           name: string;
           brand_color: string;
+          icon_key: string;
           sender_domains: string[];
           pin_regex_patterns: string[];
           pin_ttl_seconds: number;
@@ -96,6 +97,7 @@ export interface Database {
           slug: string;
           name: string;
           brand_color?: string;
+          icon_key?: string;
           sender_domains?: string[];
           pin_regex_patterns?: string[];
           pin_ttl_seconds?: number;
@@ -107,6 +109,7 @@ export interface Database {
         Update: {
           name?: string;
           brand_color?: string;
+          icon_key?: string;
           sender_domains?: string[];
           pin_regex_patterns?: string[];
           pin_ttl_seconds?: number;
@@ -451,6 +454,7 @@ export interface Database {
           user_id: string;
           service_id: string | null;
           combo_id: string | null;
+          is_cart: boolean;
           referrer_user_id: string | null;
           referral_code_used: string | null;
           price_amount: number;
@@ -470,6 +474,7 @@ export interface Database {
           user_id: string;
           service_id?: string | null;
           combo_id?: string | null;
+          is_cart?: boolean;
           referrer_user_id?: string | null;
           referral_code_used?: string | null;
           price_amount: number;
@@ -490,6 +495,7 @@ export interface Database {
           assignment_id?: string | null;
           service_id?: string | null;
           combo_id?: string | null;
+          is_cart?: boolean;
           referrer_user_id?: string | null;
           referral_code_used?: string | null;
         };
@@ -520,6 +526,51 @@ export interface Database {
             columns: ['referrer_user_id'];
             isOneToOne: false;
             referencedRelation: 'user_profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+
+      order_items: {
+        Row: {
+          id: string;
+          order_id: string;
+          service_id: string | null;
+          combo_id: string | null;
+          quantity: number;
+          unit_price_amount: number;
+          unit_price_currency: string;
+          created_at: string;
+        };
+        Insert: {
+          order_id: string;
+          service_id?: string | null;
+          combo_id?: string | null;
+          quantity?: number;
+          unit_price_amount: number;
+          unit_price_currency?: string;
+        };
+        Update: NoUpdates;
+        Relationships: [
+          {
+            foreignKeyName: 'order_items_order_id_fkey';
+            columns: ['order_id'];
+            isOneToOne: false;
+            referencedRelation: 'orders';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'order_items_service_id_fkey';
+            columns: ['service_id'];
+            isOneToOne: false;
+            referencedRelation: 'streaming_services';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'order_items_combo_id_fkey';
+            columns: ['combo_id'];
+            isOneToOne: false;
+            referencedRelation: 'streaming_combos';
             referencedColumns: ['id'];
           },
         ];
@@ -763,12 +814,17 @@ export interface Database {
           slug: string;
           nombre: string;
           color: string;
+          icono: string;
           lema: string | null;
           precio: number;
           moneda: string;
           disponibles: number;
           total: number;
         }[];
+      };
+      crear_pedido_carrito: {
+        Args: { p_items: Json; p_note?: string | null; p_referral_code?: string | null };
+        Returns: Json;
       };
       combos_publicos: {
         Args: Record<string, never>;

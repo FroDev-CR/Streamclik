@@ -78,6 +78,7 @@ describe('matcher del middleware', () => {
       privadas.some((patron) => new RegExp(`^${patron}$`).test(ruta));
 
     expect(protege('/comprar/netflix')).toBe(true);
+    expect(protege('/carrito')).toBe(true);
     expect(protege('/historial')).toBe(true);
     expect(protege('/dashboard')).toBe(true);
     expect(protege('/admin/pagos')).toBe(true);

@@ -19,7 +19,19 @@ export interface OrderRow {
   serviceName: string;
   serviceSlug: string;
   brandColor: string;
+  iconKey: string;
   isCombo: boolean;
+  isCart: boolean;
+  items: Array<{
+    name: string;
+    slug: string;
+    productType: 'service' | 'combo';
+    quantity: number;
+    unitPriceAmount: number;
+    unitPriceCurrency: string;
+    brandColor: string;
+    iconKey: string;
+  }>;
   priceAmount: number;
   priceCurrency: string;
   receiptPath: string | null;
@@ -51,15 +63,21 @@ interface QueryResult<T> {
 }
 
 const SELECT_PEDIDO = `
-  id, status, price_amount, price_currency, receipt_path, receipt_note,
+  id, status, is_cart, price_amount, price_currency, receipt_path, receipt_note,
   review_note, referral_code_used, submitted_at, created_at,
-  streaming_services ( name, slug, brand_color ),
-  streaming_combos ( name, slug )
+  streaming_services ( name, slug, brand_color, icon_key ),
+  streaming_combos ( name, slug ),
+  order_items (
+    quantity, unit_price_amount, unit_price_currency,
+    streaming_services ( name, slug, brand_color, icon_key ),
+    streaming_combos ( name, slug )
+  )
 `;
 
 type FilaPedido = {
   id: string;
   status: OrderStatus;
+  is_cart: boolean;
   price_amount: number;
   price_currency: string;
   receipt_path: string | null;
@@ -72,20 +90,69 @@ type FilaPedido = {
     name: string;
     slug: string;
     brand_color: string;
+    icon_key: string;
   } | null;
   streaming_combos: { name: string; slug: string } | null;
+  order_items: Array<{
+    quantity: number;
+    unit_price_amount: number;
+    unit_price_currency: string;
+    streaming_services: {
+      name: string;
+      slug: string;
+      brand_color: string;
+      icon_key: string;
+    } | null;
+    streaming_combos: { name: string; slug: string } | null;
+  }>;
 };
 
 function mapear(fila: FilaPedido): OrderRow {
+  const items = fila.order_items.length
+    ? fila.order_items.map((item) => ({
+        name: item.streaming_combos?.name ?? item.streaming_services?.name ?? 'Producto',
+        slug: item.streaming_combos?.slug ?? item.streaming_services?.slug ?? '',
+        productType: (item.streaming_combos ? 'combo' : 'service') as 'service' | 'combo',
+        quantity: item.quantity,
+        unitPriceAmount: Number(item.unit_price_amount),
+        unitPriceCurrency: item.unit_price_currency,
+        brandColor: item.streaming_combos
+          ? '#075dff'
+          : (item.streaming_services?.brand_color ?? '#666666'),
+        iconKey: item.streaming_combos ? 'generic' : (item.streaming_services?.icon_key ?? 'generic'),
+      }))
+    : [
+        {
+          name: fila.streaming_combos?.name ?? fila.streaming_services?.name ?? 'Servicio',
+          slug: fila.streaming_combos?.slug ?? fila.streaming_services?.slug ?? '',
+          productType: (fila.streaming_combos ? 'combo' : 'service') as 'service' | 'combo',
+          quantity: 1,
+          unitPriceAmount: Number(fila.price_amount),
+          unitPriceCurrency: fila.price_currency,
+          brandColor: fila.streaming_combos
+            ? '#075dff'
+            : (fila.streaming_services?.brand_color ?? '#666666'),
+          iconKey: fila.streaming_combos
+            ? 'generic'
+            : (fila.streaming_services?.icon_key ?? 'generic'),
+        },
+      ];
+
+  const units = items.reduce((total, item) => total + item.quantity, 0);
+  const first = items[0]!;
+
   return {
     id: fila.id,
     status: fila.status,
-    serviceName: fila.streaming_combos?.name ?? fila.streaming_services?.name ?? 'Servicio',
-    serviceSlug: fila.streaming_combos?.slug ?? fila.streaming_services?.slug ?? '',
-    brandColor: fila.streaming_combos
-      ? '#075dff'
-      : (fila.streaming_services?.brand_color ?? '#666666'),
+    serviceName: fila.is_cart
+      ? `${units} ${units === 1 ? 'producto' : 'productos'}`
+      : first.name,
+    serviceSlug: first.slug,
+    brandColor: fila.is_cart ? '#075dff' : first.brandColor,
+    iconKey: fila.is_cart ? 'generic' : first.iconKey,
     isCombo: Boolean(fila.streaming_combos),
+    isCart: fila.is_cart,
+    items,
     priceAmount: Number(fila.price_amount),
     priceCurrency: fila.price_currency,
     receiptPath: fila.receipt_path,

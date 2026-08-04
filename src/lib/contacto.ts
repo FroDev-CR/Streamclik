@@ -7,10 +7,10 @@
  */
 
 /** Número de WhatsApp en formato internacional, sin `+` ni separadores. */
-export const WHATSAPP_NUMERO = '50661150209';
+export const WHATSAPP_NUMERO = '50661299885';
 
 /** Cómo se muestra a la persona, con el prefijo y los grupos habituales en CR. */
-export const WHATSAPP_VISIBLE = '+506 6115 0209';
+export const WHATSAPP_VISIBLE = '+506 6129 9885';
 
 /**
  * Enlace de WhatsApp con un mensaje inicial ya escrito.

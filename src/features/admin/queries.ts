@@ -474,6 +474,7 @@ export interface AdminPlatformRow {
   slug: string;
   name: string;
   brandColor: string;
+  iconKey: string;
   priceAmount: number;
   tagline: string | null;
   senderDomains: string[];
@@ -513,7 +514,7 @@ export async function getAdminPlatforms(): Promise<QueryResult<AdminPlatformRow[
   const { data, error } = await supabase
     .from('streaming_services')
     .select(
-      'id, slug, name, brand_color, price_amount, tagline, sender_domains, is_active, streaming_accounts(id)',
+      'id, slug, name, brand_color, icon_key, price_amount, tagline, sender_domains, is_active, streaming_accounts(id)',
     )
     .order('name');
 
@@ -529,6 +530,7 @@ export async function getAdminPlatforms(): Promise<QueryResult<AdminPlatformRow[
     slug: string;
     name: string;
     brand_color: string;
+    icon_key: string;
     price_amount: number;
     tagline: string | null;
     sender_domains: string[];
@@ -542,6 +544,7 @@ export async function getAdminPlatforms(): Promise<QueryResult<AdminPlatformRow[
       slug: fila.slug,
       name: fila.name,
       brandColor: fila.brand_color,
+      iconKey: fila.icon_key,
       priceAmount: Number(fila.price_amount),
       tagline: fila.tagline,
       senderDomains: fila.sender_domains,

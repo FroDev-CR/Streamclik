@@ -120,6 +120,40 @@ const pedidoSchema = z.object({
     .transform((value) => (value ? value.toUpperCase() : null)),
 });
 
+const carritoSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        productType: z.enum(['service', 'combo']),
+        slug: z.string().trim().toLowerCase().min(1).max(80),
+        quantity: z.coerce.number().int().min(1).max(10),
+      }),
+    )
+    .min(1, 'El carrito está vacío')
+    .max(20, 'El carrito tiene demasiados productos'),
+  note: z
+    .string()
+    .trim()
+    .max(280, 'La nota no puede superar los 280 caracteres')
+    .optional()
+    .transform((value) => value || null),
+  referralCode: z
+    .string()
+    .trim()
+    .max(20, 'El código de invitación no es válido')
+    .optional()
+    .transform((value) => (value ? value.toUpperCase() : null)),
+});
+
+function parseCartJson(value: FormDataEntryValue | null): unknown {
+  if (typeof value !== 'string') return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Crear pedido y adjuntar el comprobante.
  *
@@ -264,6 +298,81 @@ export async function crearPedidoAction(
   // Fuera de cualquier try: `redirect()` lanza NEXT_REDIRECT por diseño y un
   // catch lo tragaría, dejando el formulario sin navegar y sin error visible.
   redirect('/perfil#historial-compras');
+}
+
+/** Crea un único pedido de carrito y adjunta el comprobante del monto total. */
+export async function crearPedidoCarritoAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireUser('/carrito');
+
+  const parsed = carritoSchema.safeParse({
+    items: parseCartJson(formData.get('cart')),
+    note: formData.get('note'),
+    referralCode: formData.get('referralCode'),
+  });
+
+  if (!parsed.success) {
+    return { fieldErrors: toFieldErrors(parsed.error.issues) };
+  }
+
+  const comprobante = validarComprobante(formData.get('receipt'));
+  if ('error' in comprobante) {
+    return { fieldErrors: { receipt: comprobante.error } };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.rpc('crear_pedido_carrito', {
+    p_items: parsed.data.items,
+    p_note: parsed.data.note,
+    p_referral_code: parsed.data.referralCode,
+  });
+
+  if (error) {
+    logger.error('No se pudo crear el pedido del carrito', { error: error.message });
+    return { error: 'No se pudo registrar el carrito. Inténtalo de nuevo.' };
+  }
+
+  const result = (data ?? {}) as { status?: string; order_id?: string; slug?: string };
+  if (result.status === 'codigo_propio') {
+    return { fieldErrors: { referralCode: 'No puedes usar tu propio código de invitación.' } };
+  }
+  if (result.status === 'codigo_invalido') {
+    return { fieldErrors: { referralCode: 'Ese código de invitación no existe.' } };
+  }
+  if (result.status === 'producto_no_disponible') {
+    return { error: `«${result.slug ?? 'Un producto'}» ya no está disponible. Actualiza el carrito.` };
+  }
+  if (result.status !== 'creado' || !result.order_id) {
+    return { error: 'El carrito no es válido o sus productos usan monedas incompatibles.' };
+  }
+
+  const upload = await subirComprobante(supabase, user.id, result.order_id, comprobante.file);
+  if ('error' in upload) return { error: upload.error };
+
+  const { error: stateError } = await supabase
+    .from('orders')
+    .update({
+      receipt_path: upload.path,
+      status: 'esperando_revision',
+      submitted_at: new Date().toISOString(),
+    })
+    .eq('id', result.order_id);
+
+  if (stateError) {
+    logger.error('El carrito se creó pero no pasó a revisión', {
+      orderId: result.order_id,
+      error: stateError.message,
+    });
+    return { error: 'Subimos el comprobante, pero no pudimos enviarlo a revisión.' };
+  }
+
+  revalidatePath('/perfil');
+  revalidatePath('/admin/pagos');
+
+  // El cliente limpia localStorage y navega al historial al recibir este estado.
+  return { success: 'Pedido enviado. Estamos comprobando tu pago.' };
 }
 
 /**
@@ -415,13 +524,13 @@ export async function soltarCuentaAction(
   switch (resultado.status) {
     case 'entregado':
       return {
-        success: 'Cuenta soltada. El cliente ya la ve en sus suscripciones.',
+        success: 'Compra entregada. El cliente ya ve todos sus perfiles.',
       };
     case 'ya_entregado':
       return { success: 'Este pedido ya estaba entregado.' };
     case 'sin_cupos':
       return {
-        error: 'No queda ningún perfil libre de esa plataforma. Añade una cuenta al banco.',
+        error: 'Falta al menos un perfil para completar la compra. Añade inventario al banco.',
       };
     case 'no_encontrado':
       return { error: 'Ese pedido ya no existe.' };

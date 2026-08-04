@@ -15,6 +15,9 @@ import {
 } from 'lucide-react';
 
 import { Logo } from '@/components/logo';
+import { PlatformIcon } from '@/components/platform-icon';
+import { AddToCartButton } from '@/features/cart/components/add-to-cart-button';
+import { CartLink } from '@/features/cart/components/cart-link';
 import { formatPrice, getPublicCatalog, getPublicCombos } from '@/features/catalog/queries';
 
 export const metadata: Metadata = {
@@ -23,18 +26,6 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = 'force-dynamic';
-
-/**
- * Las iniciales de la tarjeta salen del nombre y no de una tabla escrita a mano:
- * una plataforma creada desde el panel tiene que aparecer aquí completa, sin
- * pasar por el código.
- */
-function iniciales(nombre: string): string {
-  const limpio = nombre.replace(/\+/g, '');
-  return nombre.includes('+')
-    ? `${limpio.charAt(0).toUpperCase()}+`
-    : limpio.charAt(0).toUpperCase();
-}
 
 const FEATURES = [
   'Perfil individual con PIN',
@@ -55,16 +46,6 @@ export default async function CatalogPage() {
   const { userId } = await auth();
   const [productos, combos] = await Promise.all([getPublicCatalog(), getPublicCombos()]);
 
-  // Sin sesión se pasa por Clerk y se vuelve a la compra del mismo producto: el
-  // registro deja de ser un desvío y pasa a ser un paso dentro de la compra.
-  const comprarHref = (slug: string) =>
-    userId ? `/comprar/${slug}` : `/login?redirect_url=${encodeURIComponent(`/comprar/${slug}`)}`;
-
-  const comprarComboHref = (slug: string) =>
-    userId
-      ? `/comprar/combo/${slug}`
-      : `/login?redirect_url=${encodeURIComponent(`/comprar/combo/${slug}`)}`;
-
   return (
     <main className="catalog-page">
       <section className="catalog-hero">
@@ -81,6 +62,7 @@ export default async function CatalogPage() {
               <Link href="/" className="landing-nav-anchor catalog-home-link">
                 <ArrowLeft aria-hidden /> Inicio
               </Link>
+              <CartLink authenticated={Boolean(userId)} />
               {userId ? (
                 <Link
                   href="/dashboard"
@@ -159,10 +141,8 @@ export default async function CatalogPage() {
                     <div className="catalog-product-order">0{index + 1}</div>
                     <div
                       className="catalog-product-mark"
-                      style={{ backgroundColor: product.color }}
-                      aria-hidden
                     >
-                      {iniciales(product.nombre)}
+                      <PlatformIcon iconKey={product.icono} name={product.nombre} className="size-12" />
                     </div>
 
                     <div className="catalog-product-status">
@@ -195,9 +175,11 @@ export default async function CatalogPage() {
                     </ul>
 
                     {disponible ? (
-                      <Link href={comprarHref(product.slug)} className="catalog-buy-button">
-                        Comprar perfil <ArrowRight aria-hidden />
-                      </Link>
+                      <AddToCartButton
+                        productType="service"
+                        slug={product.slug}
+                        label="Agregar al carrito"
+                      />
                     ) : (
                       <span className="catalog-buy-button catalog-buy-disabled">Muy pronto</span>
                     )}
@@ -235,7 +217,7 @@ export default async function CatalogPage() {
                       <div className="catalog-combo-apps" aria-label="Aplicaciones incluidas">
                         {combo.servicios.map((servicio) => (
                           <span key={servicio.slug}>
-                            <i aria-hidden style={{ backgroundColor: servicio.color }} />
+                            <PlatformIcon iconKey={servicio.icono} name={servicio.nombre} />
                             {servicio.nombre}
                           </span>
                         ))}
@@ -265,9 +247,11 @@ export default async function CatalogPage() {
                       </p>
 
                       {disponible ? (
-                        <Link href={comprarComboHref(combo.slug)} className="catalog-buy-button">
-                          Comprar combo <ArrowRight aria-hidden />
-                        </Link>
+                        <AddToCartButton
+                          productType="combo"
+                          slug={combo.slug}
+                          label="Agregar combo"
+                        />
                       ) : (
                         <span className="catalog-buy-button catalog-buy-disabled">Muy pronto</span>
                       )}

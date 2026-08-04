@@ -15,6 +15,7 @@ export interface CatalogItem {
   slug: string;
   nombre: string;
   color: string;
+  icono: string;
   lema: string | null;
   precio: number;
   moneda: string;
@@ -26,6 +27,7 @@ export interface CatalogComboService {
   slug: string;
   nombre: string;
   color: string;
+  icono: string;
 }
 
 export interface CatalogCombo {

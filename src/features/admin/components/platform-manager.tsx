@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/input';
+import { PlatformIcon } from '@/components/platform-icon';
+import { PLATFORM_ICON_OPTIONS } from '@/features/catalog/platform-icons';
 import type { ActionState } from '@/features/shared/action-state';
 
 import { createPlatformAction, togglePlatformAction, updatePlatformAction } from '../actions';
@@ -38,6 +40,46 @@ function BotonGuardar() {
       <Save aria-hidden className="size-3.5" strokeWidth={2.5} />
       {pending ? 'Guardando…' : 'Guardar cambios'}
     </Button>
+  );
+}
+
+function IconPicker({
+  defaultValue = 'generic',
+  error,
+  prefix,
+}: {
+  defaultValue?: string;
+  error?: string;
+  prefix: string;
+}) {
+  return (
+    <fieldset className="flex flex-col gap-2">
+      <legend className="font-[family-name:var(--font-display)] text-[0.72rem] font-extrabold uppercase tracking-wider">
+        Icono de la aplicación
+      </legend>
+      <div className="grid max-h-52 grid-cols-4 gap-2 overflow-y-auto rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-canvas)] p-2 sm:grid-cols-6">
+        {PLATFORM_ICON_OPTIONS.map((option) => (
+          <label key={option.key} className="cursor-pointer" title={option.label}>
+            <input
+              type="radio"
+              name="iconKey"
+              value={option.key}
+              defaultChecked={option.key === defaultValue}
+              className="peer sr-only"
+              required
+            />
+            <span className="flex aspect-square items-center justify-center rounded-xl border-2 border-transparent bg-[var(--color-surface)] p-2 transition peer-checked:border-[var(--color-accent)] peer-checked:shadow-[3px_3px_0_var(--color-border)] peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2">
+              <PlatformIcon iconKey={option.key} name={option.label} className="size-7" />
+              <span className="sr-only">{option.label}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      <p className="text-xs text-[var(--color-content-muted)]" id={`${prefix}-icon-hint`}>
+        Incluye Netflix, Disney+, Max, Prime Video, Paramount+, Apple TV+, Crunchyroll, IPTV y más.
+      </p>
+      {error && <p className="text-xs font-semibold text-[var(--color-danger)]">{error}</p>}
+    </fieldset>
   );
 }
 
@@ -145,6 +187,14 @@ function EditPlatformForm({
             hint="Separados por comas. Se usan para reconocer correos legítimos de la plataforma."
           />
         </div>
+
+        <div className="sm:col-span-2">
+          <IconPicker
+            prefix={`edit-${platform.id}`}
+            defaultValue={platform.iconKey}
+            error={state.fieldErrors?.iconKey}
+          />
+        </div>
       </div>
 
       {state.error && (
@@ -174,12 +224,8 @@ function PlatformCard({ platform }: { platform: AdminPlatformRow }) {
   return (
     <Card className="overflow-hidden">
       <div className="flex flex-wrap items-center gap-3 p-4">
-        <span
-          aria-hidden
-          className="grid size-11 shrink-0 place-items-center rounded-xl border-2 border-[var(--color-border)] font-[family-name:var(--font-display)] text-lg font-black text-white"
-          style={{ backgroundColor: platform.brandColor }}
-        >
-          {platform.name.charAt(0)}
+        <span className="grid size-11 shrink-0 place-items-center rounded-xl border-2 border-[var(--color-border)] bg-white">
+          <PlatformIcon iconKey={platform.iconKey} name={platform.name} className="size-7" />
         </span>
 
         <div className="min-w-0 flex-1">
@@ -253,6 +299,8 @@ export function PlatformManager({ platforms }: { platforms: AdminPlatformRow[] }
                 required
               />
             </div>
+
+            <IconPicker prefix="create" error={state.fieldErrors?.iconKey} />
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="slug">Identificador</Label>

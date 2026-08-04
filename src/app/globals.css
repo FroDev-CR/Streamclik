@@ -215,6 +215,8 @@
   .catalog-product-card {
     position: relative;
     display: flex;
+    container-type: inline-size;
+    min-width: 0;
     min-height: 620px;
     flex-direction: column;
     padding: clamp(26px, 3vw, 38px);
@@ -259,7 +261,9 @@
     place-items: center;
     border: 2px solid currentColor;
     border-radius: 20px;
-    color: #fff;
+    overflow: hidden;
+    background: #fff;
+    color: var(--landing-black);
     font-family: var(--font-display);
     font-size: 2rem;
     font-weight: 900;
@@ -268,6 +272,12 @@
 
   .catalog-product-active .catalog-product-mark {
     box-shadow: 5px 5px 0 #fff;
+  }
+
+  .catalog-product-mark img {
+    width: 66%;
+    height: 66%;
+    object-fit: contain;
   }
 
   .catalog-product-status {
@@ -304,16 +314,20 @@
   }
 
   .catalog-product-card h3 {
+    max-width: 100%;
     margin: 0;
     font-family: var(--font-display);
-    font-size: clamp(2.6rem, 5vw, 5rem);
+    font-size: clamp(2.5rem, 5vw, 5rem);
+    font-size: clamp(2.5rem, 16cqi, 5rem);
     font-weight: 900;
     letter-spacing: -0.055em;
     line-height: 0.9;
+    overflow-wrap: anywhere;
   }
 
   .catalog-product-card:not(:first-child) h3 {
-    font-size: clamp(2.2rem, 3.1vw, 3.2rem);
+    font-size: clamp(2rem, 3.1vw, 3.2rem);
+    font-size: clamp(2rem, 14cqi, 3.2rem);
   }
 
   .catalog-product-description {
@@ -458,14 +472,17 @@
     font-weight: 800;
   }
 
-  .catalog-combo-apps i {
-    width: 10px;
-    height: 10px;
-    border: 1px solid currentColor;
-    border-radius: 50%;
+  .catalog-combo-apps img {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    border-radius: 4px;
+    background: #fff;
+    padding: 2px;
   }
 
   .catalog-combo-card h3 {
+    max-width: 100%;
     margin: 36px 0 0;
     font-family: var(--font-display);
     font-size: clamp(2.7rem, 5vw, 5rem);
@@ -473,6 +490,39 @@
     letter-spacing: -0.055em;
     line-height: 0.88;
     text-transform: uppercase;
+    overflow-wrap: anywhere;
+  }
+
+  .catalog-cart-link {
+    position: relative;
+    display: inline-flex;
+    min-height: 38px;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 10px;
+    border: 2px solid var(--landing-black);
+    border-radius: 10px;
+    color: var(--landing-black);
+    font-family: var(--font-display);
+    font-size: 0.74rem;
+    font-weight: 900;
+    text-decoration: none;
+  }
+
+  .catalog-cart-link svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  .catalog-cart-link strong {
+    display: grid;
+    min-width: 21px;
+    height: 21px;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--landing-yellow);
+    color: var(--landing-black);
+    font-size: 0.65rem;
   }
 
   .catalog-combo-price {
@@ -1062,7 +1112,7 @@
 
     .catalog-product-card h3,
     .catalog-product-card:not(:first-child) h3 {
-      font-size: 3.3rem;
+      font-size: clamp(2.2rem, 14cqi, 3.3rem);
     }
 
     .catalog-combo-grid {
@@ -3252,11 +3302,17 @@
 
 @layer components {
   /* Botón flotante de WhatsApp. Presente en toda la aplicación. */
-  .sc-wa {
+  .sc-wa-wrap {
     position: fixed;
     right: 20px;
     bottom: 20px;
     z-index: 60;
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+  }
+
+  .sc-wa {
     display: grid;
     width: 56px;
     height: 56px;
@@ -3282,12 +3338,87 @@
     fill: currentColor;
   }
 
+  .sc-wa-message {
+    position: relative;
+    display: flex;
+    min-width: 230px;
+    flex-direction: column;
+    padding: 13px 38px 13px 15px;
+    border: 2px solid #050505;
+    border-radius: 14px;
+    background: #fff;
+    color: #050505;
+    box-shadow: 4px 4px 0 #050505;
+    animation: sc-wa-pop 220ms ease-out both;
+  }
+
+  .sc-wa-message::after {
+    position: absolute;
+    right: -8px;
+    bottom: 17px;
+    width: 13px;
+    height: 13px;
+    border-top: 2px solid #050505;
+    border-right: 2px solid #050505;
+    background: #fff;
+    content: '';
+    transform: rotate(45deg);
+  }
+
+  .sc-wa-message strong {
+    font-family: var(--font-display);
+    font-size: 0.88rem;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .sc-wa-message span {
+    margin-top: 2px;
+    font-size: 0.78rem;
+  }
+
+  .sc-wa-message button {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: grid;
+    width: 26px;
+    height: 26px;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .sc-wa-message button:hover {
+    background: rgb(5 5 5 / 8%);
+  }
+
+  .sc-wa-message button svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  @keyframes sc-wa-pop {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.96);
+    }
+  }
+
   /* En móvil se sube: abajo a la derecha es justo donde el navegador pone su
      barra de herramientas y donde el pulgar ya tiene otros controles. */
   @media (max-width: 600px) {
-    .sc-wa {
+    .sc-wa-wrap {
       right: 14px;
       bottom: 76px;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 10px;
+    }
+
+    .sc-wa {
       width: 50px;
       height: 50px;
     }
@@ -3295,6 +3426,17 @@
     .sc-wa svg {
       width: 25px;
       height: 25px;
+    }
+
+    .sc-wa-message {
+      min-width: 0;
+      width: min(260px, calc(100vw - 28px));
+    }
+
+    .sc-wa-message::after {
+      right: 17px;
+      bottom: -8px;
+      transform: rotate(135deg);
     }
   }
 }
