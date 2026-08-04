@@ -393,6 +393,10 @@ const plataformaSchema = z.object({
     ),
 });
 
+const updatePlatformSchema = plataformaSchema.omit({ slug: true }).extend({
+  serviceId: z.string().uuid('Plataforma no válida'),
+});
+
 /**
  * Alta de una plataforma en el catálogo.
  *
@@ -452,6 +456,77 @@ export async function createPlatformAction(
   revalidatePath('/');
 
   return { success: `«${parsed.data.name}» añadida al catálogo` };
+}
+
+/** Actualiza una plataforma sin cambiar su slug, que también identifica el parser de correo. */
+export async function updatePlatformAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireAdmin();
+
+  const parsed = updatePlatformSchema.safeParse({
+    serviceId: formData.get('serviceId'),
+    name: formData.get('name'),
+    brandColor: formData.get('brandColor'),
+    priceAmount: formData.get('priceAmount'),
+    tagline: formData.get('tagline'),
+    senderDomains: formData.get('senderDomains'),
+  });
+
+  if (!parsed.success) {
+    return { fieldErrors: toFieldErrors(parsed.error.issues) };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: anterior, error: readError } = await supabase
+    .from('streaming_services')
+    .select('slug, name, brand_color, price_amount, tagline, sender_domains')
+    .eq('id', parsed.data.serviceId)
+    .maybeSingle();
+
+  if (readError || !anterior) {
+    logger.error('No se pudo leer la plataforma antes de modificarla', {
+      serviceId: parsed.data.serviceId,
+      error: readError?.message,
+    });
+    return { error: 'La plataforma ya no existe o no se pudo leer' };
+  }
+
+  const { error } = await supabase
+    .from('streaming_services')
+    .update({
+      name: parsed.data.name,
+      brand_color: parsed.data.brandColor,
+      price_amount: parsed.data.priceAmount,
+      tagline: parsed.data.tagline,
+      sender_domains: parsed.data.senderDomains,
+    })
+    .eq('id', parsed.data.serviceId);
+
+  if (error) {
+    logger.error('Fallo al modificar la plataforma', {
+      serviceId: parsed.data.serviceId,
+      error: error.message,
+    });
+    return { error: 'No se pudieron guardar los cambios' };
+  }
+
+  await supabase.from('audit_logs').insert({
+    actor_id: admin.id,
+    action: 'platform.updated',
+    entity_type: 'streaming_service',
+    entity_id: parsed.data.serviceId,
+    metadata: { previous: anterior },
+  });
+
+  revalidatePath('/admin');
+  revalidatePath('/admin/plataformas');
+  revalidatePath('/admin/nueva');
+  revalidatePath('/catalogo');
+  revalidatePath('/');
+
+  return { success: `«${parsed.data.name}» actualizada` };
 }
 
 /** Activa o desactiva una plataforma sin borrarla. */
