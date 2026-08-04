@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { CatalogSection } from "@/features/catalog/components/catalog-section";
-import { getPublicCatalog } from "@/features/catalog/queries";
+import { getPublicCatalog, getPublicCombos } from "@/features/catalog/queries";
 import {
   ArrowRight,
   BadgeCheck,
@@ -78,7 +78,7 @@ const STEPS = [
 export const revalidate = 300;
 
 export default async function LandingPage() {
-  const catalogo = await getPublicCatalog();
+  const [catalogo, combos] = await Promise.all([getPublicCatalog(), getPublicCombos()]);
 
   return (
     <main className="landing-page">
@@ -87,7 +87,7 @@ export default async function LandingPage() {
       {/* El escaparate va inmediatamente después del hero: responde a la
           pregunta con la que llega el visitante —qué venden y a cuánto— antes
           que cualquier argumento de venta. */}
-      <CatalogSection items={catalogo} />
+      <CatalogSection items={catalogo} combos={combos} />
 
       <section className="landing-value-section" id="ventajas">
         <div className="landing-shell landing-value-grid">

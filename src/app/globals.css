@@ -522,7 +522,8 @@
     padding: 2px;
   }
 
-  .catalog-combo-card h3 {
+  .catalog-combo-card h3,
+  .catalog-combo-card h4 {
     max-width: 100%;
     margin: 36px 0 0;
     font-family: var(--font-display);
@@ -1177,7 +1178,8 @@
       box-shadow: 7px 7px 0 var(--landing-black);
     }
 
-    .catalog-combo-card h3 {
+    .catalog-combo-card h3,
+    .catalog-combo-card h4 {
       font-size: 3.25rem;
     }
 
@@ -2069,6 +2071,40 @@
     color: rgb(5 5 5 / 45%);
     box-shadow: none;
     cursor: not-allowed;
+  }
+
+  .catalogo-combos {
+    margin-top: clamp(76px, 9vw, 118px);
+    padding-top: clamp(54px, 7vw, 78px);
+    border-top: 3px solid var(--landing-black);
+  }
+
+  .catalogo-combos-header {
+    max-width: 760px;
+  }
+
+  .catalogo-combos-header h3 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(3rem, 5.5vw, 5.4rem);
+    font-weight: 900;
+    letter-spacing: -0.055em;
+    line-height: 0.9;
+    text-transform: uppercase;
+  }
+
+  .catalogo-combos .catalog-combo-grid {
+    margin-top: 46px;
+  }
+
+  .catalogo-combos .catalog-combo-card {
+    min-height: 440px;
+  }
+
+  .catalogo-combos .catalog-product-description {
+    margin-top: 18px;
+    line-height: 1.55;
+    opacity: 0.82;
   }
 
   .catalogo-nota {
