@@ -2,6 +2,9 @@ import 'server-only';
 
 import { createSupabaseServerClient } from '@/infrastructure/supabase/server';
 import type { AccountStatus, AssignmentStatus } from '@/core/domain/entities';
+import type { RawEmail } from '@/core/ports/email-parser';
+import { htmlToText } from '@/infrastructure/email/html-to-text';
+import { emailParsers } from '@/infrastructure/email/parsers/registry';
 import { logger } from '@/lib/logger';
 
 /**
@@ -70,7 +73,18 @@ export interface InboundEmailRow {
   parseStatus: 'parsed' | 'unmatched' | 'failed' | 'ignored';
   receivedAt: string;
   accountId: string | null;
+  body: string;
+  parseError: string | null;
+  serviceSlug: string | null;
+  serviceName: string | null;
 }
+
+const SERVICE_NAMES: Record<string, string> = {
+  netflix: 'Netflix',
+  'disney-plus': 'Disney+',
+  max: 'Max',
+  'prime-video': 'Prime Video',
+};
 
 /**
  * Últimos correos que llegaron a los buzones de ingesta.
@@ -90,7 +104,9 @@ export async function getRecentInboundEmails(limit = 15): Promise<QueryResult<In
 
   const { data, error } = await supabase
     .from('inbound_emails')
-    .select('id, from_address, to_address, subject, parse_status, received_at, account_id')
+    .select(
+      'id, from_address, to_address, subject, body_text, body_html, parse_status, parse_error, received_at, account_id',
+    )
     .order('received_at', { ascending: false })
     .limit(limit);
 
@@ -102,15 +118,31 @@ export async function getRecentInboundEmails(limit = 15): Promise<QueryResult<In
   }
 
   return {
-    data: (data ?? []).map((row) => ({
-      id: row.id,
-      fromAddress: row.from_address,
-      toAddress: row.to_address,
-      subject: row.subject,
-      parseStatus: row.parse_status,
-      receivedAt: row.received_at,
-      accountId: row.account_id,
-    })),
+    data: (data ?? []).map((row) => {
+      const rawEmail: RawEmail = {
+        from: row.from_address,
+        to: row.to_address,
+        subject: row.subject ?? '',
+        text: row.body_text,
+        html: row.body_html,
+      };
+      const parser = emailParsers.find((candidate) => candidate.canHandle(rawEmail));
+      const serviceSlug = parser?.serviceSlug ?? null;
+
+      return {
+        id: row.id,
+        fromAddress: row.from_address,
+        toAddress: row.to_address,
+        subject: row.subject,
+        parseStatus: row.parse_status,
+        receivedAt: row.received_at,
+        accountId: row.account_id,
+        body: row.body_text?.trim() || (row.body_html ? htmlToText(row.body_html) : ''),
+        parseError: row.parse_error,
+        serviceSlug,
+        serviceName: serviceSlug ? (SERVICE_NAMES[serviceSlug] ?? serviceSlug) : null,
+      };
+    }),
     error: null,
   };
 }
