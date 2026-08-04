@@ -89,7 +89,10 @@ async function subirComprobante(
   });
 
   if (error) {
-    logger.error('No se pudo subir el comprobante', { error: error.message, orderId });
+    logger.error('No se pudo subir el comprobante', {
+      error: error.message,
+      orderId,
+    });
     return { error: 'No se pudo subir el comprobante. Inténtalo de nuevo.' };
   }
 
@@ -101,7 +104,8 @@ async function subirComprobante(
 // -----------------------------------------------------------------------------
 
 const pedidoSchema = z.object({
-  serviceId: z.string().uuid('Selecciona un servicio válido'),
+  productId: z.string().uuid('Selecciona un producto válido'),
+  productType: z.enum(['service', 'combo']),
   note: z
     .string()
     .trim()
@@ -128,7 +132,8 @@ export async function crearPedidoAction(
   const user = await requireUser('/dashboard');
 
   const parsed = pedidoSchema.safeParse({
-    serviceId: formData.get('serviceId'),
+    productId: formData.get('productId'),
+    productType: formData.get('productType'),
     note: formData.get('note'),
   });
 
@@ -143,24 +148,33 @@ export async function crearPedidoAction(
 
   const supabase = await createSupabaseServerClient();
 
-  const { data: servicio, error: errorServicio } = await supabase
-    .from('streaming_services')
-    .select('id, price_amount, price_currency')
-    .eq('id', parsed.data.serviceId)
-    .eq('is_active', true)
-    .maybeSingle();
+  const producto =
+    parsed.data.productType === 'combo'
+      ? await supabase
+          .from('streaming_combos')
+          .select('id, price_amount, price_currency')
+          .eq('id', parsed.data.productId)
+          .eq('is_active', true)
+          .maybeSingle()
+      : await supabase
+          .from('streaming_services')
+          .select('id, price_amount, price_currency')
+          .eq('id', parsed.data.productId)
+          .eq('is_active', true)
+          .maybeSingle();
 
-  if (errorServicio || !servicio) {
-    return { error: 'Ese servicio ya no está disponible' };
+  if (producto.error || !producto.data) {
+    return { error: 'Ese producto ya no está disponible' };
   }
 
   const { data: pedido, error: errorPedido } = await supabase
     .from('orders')
     .insert({
       user_id: user.id,
-      service_id: servicio.id,
-      price_amount: servicio.price_amount,
-      price_currency: servicio.price_currency,
+      service_id: parsed.data.productType === 'service' ? producto.data.id : null,
+      combo_id: parsed.data.productType === 'combo' ? producto.data.id : null,
+      price_amount: producto.data.price_amount,
+      price_currency: producto.data.price_currency,
       receipt_note: parsed.data.note,
     })
     .select('id')
@@ -190,16 +204,18 @@ export async function crearPedidoAction(
       error: errorEstado.message,
       orderId: pedido.id,
     });
-    return { error: 'Subimos el comprobante pero no pudimos enviarlo a revisión.' };
+    return {
+      error: 'Subimos el comprobante pero no pudimos enviarlo a revisión.',
+    };
   }
 
-  revalidatePath('/historial');
+  revalidatePath('/dashboard');
   revalidatePath('/dashboard');
   revalidatePath('/admin/pagos');
 
   // Fuera de cualquier try: `redirect()` lanza NEXT_REDIRECT por diseño y un
   // catch lo tragaría, dejando el formulario sin navegar y sin error visible.
-  redirect('/historial');
+  redirect('/dashboard#historial-compras');
 }
 
 /**
@@ -213,7 +229,7 @@ export async function subirComprobanteAction(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const user = await requireUser('/historial');
+  const user = await requireUser('/dashboard#historial-compras');
 
   const orderId = z.string().uuid().safeParse(formData.get('orderId'));
   if (!orderId.success) {
@@ -244,14 +260,18 @@ export async function subirComprobanteAction(
     .eq('id', orderId.data);
 
   if (error) {
-    logger.error('No se pudo adjuntar el comprobante', { error: error.message });
+    logger.error('No se pudo adjuntar el comprobante', {
+      error: error.message,
+    });
     return { error: 'No se pudo enviar el comprobante a revisión.' };
   }
 
-  revalidatePath('/historial');
+  revalidatePath('/dashboard');
   revalidatePath('/admin/pagos');
 
-  return { success: 'Comprobante enviado. Lo revisamos y te soltamos la cuenta.' };
+  return {
+    success: 'Comprobante enviado. Lo revisamos y te soltamos la cuenta.',
+  };
 }
 
 /** El cliente desiste de un pedido que aún nadie ha revisado. */
@@ -259,7 +279,7 @@ export async function cancelarPedidoAction(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireUser('/historial');
+  await requireUser('/dashboard#historial-compras');
 
   const orderId = z.string().uuid().safeParse(formData.get('orderId'));
   if (!orderId.success) {
@@ -278,7 +298,7 @@ export async function cancelarPedidoAction(
     return { error: 'No se pudo cancelar el pedido.' };
   }
 
-  revalidatePath('/historial');
+  revalidatePath('/dashboard');
   revalidatePath('/admin/pagos');
 
   return { success: 'Pedido cancelado' };
@@ -338,14 +358,16 @@ export async function soltarCuentaAction(
   revalidatePath('/admin/pagos');
   revalidatePath('/admin');
   revalidatePath('/dashboard');
-  revalidatePath('/historial');
+  revalidatePath('/dashboard');
 
   // Cada resultado del RPC se traduce a un mensaje concreto. «Sin cupos» no es
   // un error del operador ni del comprobante: es inventario que falta, y decirlo
   // así es lo que le indica qué hacer a continuación.
   switch (resultado.status) {
     case 'entregado':
-      return { success: 'Cuenta soltada. El cliente ya la ve en sus suscripciones.' };
+      return {
+        success: 'Cuenta soltada. El cliente ya la ve en sus suscripciones.',
+      };
     case 'ya_entregado':
       return { success: 'Este pedido ya estaba entregado.' };
     case 'sin_cupos':
@@ -408,7 +430,7 @@ export async function rechazarPedidoAction(
   }
 
   revalidatePath('/admin/pagos');
-  revalidatePath('/historial');
+  revalidatePath('/dashboard');
 
   return { success: 'Pedido rechazado' };
 }
@@ -455,7 +477,9 @@ export async function guardarDatosPagoAction(
   });
 
   if (error) {
-    logger.error('No se pudieron guardar los datos de cobro', { error: error.message });
+    logger.error('No se pudieron guardar los datos de cobro', {
+      error: error.message,
+    });
     return { error: 'No se pudieron guardar los datos de cobro.' };
   }
 

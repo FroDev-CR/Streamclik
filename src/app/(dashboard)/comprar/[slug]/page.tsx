@@ -47,7 +47,7 @@ export default async function ComprarPage({ params }: { params: Promise<{ slug: 
       </header>
 
       <CheckoutForm
-        serviceId={servicio.id}
+        productId={servicio.id}
         serviceName={servicio.name}
         brandColor={servicio.brand_color}
         priceAmount={Number(servicio.price_amount)}

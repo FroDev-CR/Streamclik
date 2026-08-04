@@ -95,7 +95,9 @@ export async function getRecentInboundEmails(limit = 15): Promise<QueryResult<In
     .limit(limit);
 
   if (error) {
-    logger.error('No se pudieron leer los correos entrantes', { error: error.message });
+    logger.error('No se pudieron leer los correos entrantes', {
+      error: error.message,
+    });
     return { data: [], error: error.message };
   }
 
@@ -123,7 +125,9 @@ export async function getServiceOptions(): Promise<QueryResult<AdminServiceOptio
     .order('name');
 
   if (error) {
-    logger.error('No se pudo leer el catálogo de servicios', { error: error.message });
+    logger.error('No se pudo leer el catálogo de servicios', {
+      error: error.message,
+    });
     return { data: [], error: error.message };
   }
 
@@ -148,7 +152,9 @@ export async function getClientOptions(): Promise<QueryResult<AdminClientOption[
     .order('email');
 
   if (error) {
-    logger.error('No se pudo leer la lista de clientes', { error: error.message });
+    logger.error('No se pudo leer la lista de clientes', {
+      error: error.message,
+    });
     return { data: [], error: error.message };
   }
 
@@ -385,6 +391,22 @@ export interface AdminPlatformRow {
   accountCount: number;
 }
 
+export interface AdminComboRow {
+  id: string;
+  slug: string;
+  name: string;
+  tagline: string | null;
+  priceAmount: number;
+  priceCurrency: string;
+  isActive: boolean;
+  services: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    brandColor: string;
+  }>;
+}
+
 /**
  * Plataformas del catálogo, incluidas las ocultas.
  *
@@ -404,7 +426,9 @@ export async function getAdminPlatforms(): Promise<QueryResult<AdminPlatformRow[
     .order('name');
 
   if (error) {
-    logger.error('No se pudieron leer las plataformas', { error: error.message });
+    logger.error('No se pudieron leer las plataformas', {
+      error: error.message,
+    });
     return { data: [], error: error.message };
   }
 
@@ -429,6 +453,67 @@ export async function getAdminPlatforms(): Promise<QueryResult<AdminPlatformRow[
       tagline: fila.tagline,
       isActive: fila.is_active,
       accountCount: fila.streaming_accounts?.length ?? 0,
+    })),
+    error: null,
+  };
+}
+
+/** Paquetes configurados por el operador, incluidos los que están ocultos. */
+export async function getAdminCombos(): Promise<QueryResult<AdminComboRow[]>> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from('streaming_combos')
+    .select(
+      `id, slug, name, tagline, price_amount, price_currency, is_active,
+       streaming_combo_items (
+         streaming_services ( id, name, slug, brand_color )
+       )`,
+    )
+    .order('name');
+
+  if (error) {
+    logger.error('No se pudieron leer los combos', { error: error.message });
+    return { data: [], error: error.message };
+  }
+
+  type Fila = {
+    id: string;
+    slug: string;
+    name: string;
+    tagline: string | null;
+    price_amount: number;
+    price_currency: string;
+    is_active: boolean;
+    streaming_combo_items: Array<{
+      streaming_services: {
+        id: string;
+        name: string;
+        slug: string;
+        brand_color: string;
+      } | null;
+    }>;
+  };
+
+  return {
+    data: ((data ?? []) as unknown as Fila[]).map((fila) => ({
+      id: fila.id,
+      slug: fila.slug,
+      name: fila.name,
+      tagline: fila.tagline,
+      priceAmount: Number(fila.price_amount),
+      priceCurrency: fila.price_currency,
+      isActive: fila.is_active,
+      services: fila.streaming_combo_items
+        .map((item) => item.streaming_services)
+        .filter((service): service is NonNullable<typeof service> => Boolean(service))
+        .map((service) => ({
+          id: service.id,
+          name: service.name,
+          slug: service.slug,
+          brandColor: service.brand_color,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'es')),
     })),
     error: null,
   };

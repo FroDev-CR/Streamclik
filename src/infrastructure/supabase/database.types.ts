@@ -27,11 +27,7 @@ export type EmailParseStatusDb = 'parsed' | 'unmatched' | 'failed' | 'ignored';
 export type NotificationChannelDb = 'realtime' | 'whatsapp' | 'telegram' | 'push' | 'email';
 export type NotificationStatusDb = 'pending' | 'sent' | 'failed' | 'skipped';
 export type OrderStatusDb =
-  | 'esperando_comprobante'
-  | 'esperando_revision'
-  | 'entregado'
-  | 'rechazado'
-  | 'cancelado';
+  'esperando_comprobante' | 'esperando_revision' | 'entregado' | 'rechazado' | 'cancelado';
 
 /** Tablas sin columnas modificables por la API (sólo las escribe el webhook). */
 type NoUpdates = Record<string, never>;
@@ -115,6 +111,66 @@ export interface Database {
           tagline?: string | null;
         };
         Relationships: [];
+      };
+
+      streaming_combos: {
+        Row: {
+          id: string;
+          slug: string;
+          name: string;
+          tagline: string | null;
+          price_amount: number;
+          price_currency: string;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          slug: string;
+          name: string;
+          tagline?: string | null;
+          price_amount: number;
+          price_currency?: string;
+          is_active?: boolean;
+        };
+        Update: {
+          name?: string;
+          tagline?: string | null;
+          price_amount?: number;
+          price_currency?: string;
+          is_active?: boolean;
+        };
+        Relationships: [];
+      };
+
+      streaming_combo_items: {
+        Row: {
+          combo_id: string;
+          service_id: string;
+          created_at: string;
+        };
+        Insert: {
+          combo_id: string;
+          service_id: string;
+        };
+        Update: NoUpdates;
+        Relationships: [
+          {
+            foreignKeyName: 'streaming_combo_items_combo_id_fkey';
+            columns: ['combo_id'];
+            isOneToOne: false;
+            referencedRelation: 'streaming_combos';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'streaming_combo_items_service_id_fkey';
+            columns: ['service_id'];
+            isOneToOne: false;
+            referencedRelation: 'streaming_services';
+            referencedColumns: ['id'];
+          },
+        ];
       };
 
       streaming_accounts: {
@@ -387,7 +443,8 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          service_id: string;
+          service_id: string | null;
+          combo_id: string | null;
           price_amount: number;
           price_currency: string;
           status: OrderStatusDb;
@@ -403,7 +460,8 @@ export interface Database {
         };
         Insert: {
           user_id: string;
-          service_id: string;
+          service_id?: string | null;
+          combo_id?: string | null;
           price_amount: number;
           price_currency?: string;
           status?: OrderStatusDb;
@@ -420,6 +478,8 @@ export interface Database {
           reviewed_by?: string | null;
           review_note?: string | null;
           assignment_id?: string | null;
+          service_id?: string | null;
+          combo_id?: string | null;
         };
         Relationships: [
           {
@@ -436,6 +496,42 @@ export interface Database {
             referencedRelation: 'streaming_services';
             referencedColumns: ['id'];
           },
+          {
+            foreignKeyName: 'orders_combo_id_fkey';
+            columns: ['combo_id'];
+            isOneToOne: false;
+            referencedRelation: 'streaming_combos';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+
+      order_assignments: {
+        Row: {
+          order_id: string;
+          assignment_id: string;
+          created_at: string;
+        };
+        Insert: {
+          order_id: string;
+          assignment_id: string;
+        };
+        Update: NoUpdates;
+        Relationships: [
+          {
+            foreignKeyName: 'order_assignments_order_id_fkey';
+            columns: ['order_id'];
+            isOneToOne: false;
+            referencedRelation: 'orders';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'order_assignments_assignment_id_fkey';
+            columns: ['assignment_id'];
+            isOneToOne: true;
+            referencedRelation: 'profile_assignments';
+            referencedColumns: ['id'];
+          },
         ];
       };
 
@@ -447,8 +543,17 @@ export interface Database {
           instructions: string;
           updated_at: string;
         };
-        Insert: { id?: boolean; sinpe_number?: string; sinpe_name?: string; instructions?: string };
-        Update: { sinpe_number?: string; sinpe_name?: string; instructions?: string };
+        Insert: {
+          id?: boolean;
+          sinpe_number?: string;
+          sinpe_name?: string;
+          instructions?: string;
+        };
+        Update: {
+          sinpe_number?: string;
+          sinpe_name?: string;
+          instructions?: string;
+        };
         Relationships: [];
       };
 
@@ -532,7 +637,11 @@ export interface Database {
         Returns: boolean;
       };
       can_view_pin: {
-        Args: { p_account_id: string; p_received_at: string; p_user_id?: string };
+        Args: {
+          p_account_id: string;
+          p_received_at: string;
+          p_user_id?: string;
+        };
         Returns: boolean;
       };
       ingest_inbound_email: {
@@ -564,6 +673,18 @@ export interface Database {
           moneda: string;
           disponibles: number;
           total: number;
+        }[];
+      };
+      combos_publicos: {
+        Args: Record<string, never>;
+        Returns: {
+          slug: string;
+          nombre: string;
+          lema: string | null;
+          precio: number;
+          moneda: string;
+          disponibles: number;
+          servicios: Json;
         }[];
       };
       soltar_cuenta: {

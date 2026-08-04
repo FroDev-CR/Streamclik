@@ -1,6 +1,6 @@
-import { auth } from "@clerk/nextjs/server";
-import type { Metadata } from "next";
-import Link from "next/link";
+import { auth } from '@clerk/nextjs/server';
+import type { Metadata } from 'next';
+import Link from 'next/link';
 import {
   ArrowLeft,
   ArrowRight,
@@ -8,21 +8,21 @@ import {
   Check,
   Clock3,
   KeyRound,
+  Layers3,
   LockKeyhole,
   Sparkles,
   Zap,
-} from "lucide-react";
+} from 'lucide-react';
 
-import { Logo } from "@/components/logo";
-import { formatPrice, getPublicCatalog } from "@/features/catalog/queries";
+import { Logo } from '@/components/logo';
+import { formatPrice, getPublicCatalog, getPublicCombos } from '@/features/catalog/queries';
 
 export const metadata: Metadata = {
-  title: "Catálogo",
-  description:
-    "Elige tu cuenta o perfil de streaming y recíbelo automáticamente.",
+  title: 'Catálogo',
+  description: 'Elige tu cuenta o perfil de streaming y recíbelo automáticamente.',
 };
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 /**
  * Las iniciales de la tarjeta salen del nombre y no de una tabla escrita a mano:
@@ -30,16 +30,16 @@ export const dynamic = "force-dynamic";
  * pasar por el código.
  */
 function iniciales(nombre: string): string {
-  const limpio = nombre.replace(/\+/g, "");
-  return nombre.includes("+")
+  const limpio = nombre.replace(/\+/g, '');
+  return nombre.includes('+')
     ? `${limpio.charAt(0).toUpperCase()}+`
     : limpio.charAt(0).toUpperCase();
 }
 
 const FEATURES = [
-  "Perfil individual con PIN",
-  "Códigos de verificación al instante",
-  "Soporte cuando lo necesites",
+  'Perfil individual con PIN',
+  'Códigos de verificación al instante',
+  'Soporte cuando lo necesites',
 ] as const;
 
 /**
@@ -53,14 +53,17 @@ const FEATURES = [
  */
 export default async function CatalogPage() {
   const { userId } = await auth();
-  const productos = await getPublicCatalog();
+  const [productos, combos] = await Promise.all([getPublicCatalog(), getPublicCombos()]);
 
   // Sin sesión se pasa por Clerk y se vuelve a la compra del mismo producto: el
   // registro deja de ser un desvío y pasa a ser un paso dentro de la compra.
   const comprarHref = (slug: string) =>
+    userId ? `/comprar/${slug}` : `/login?redirect_url=${encodeURIComponent(`/comprar/${slug}`)}`;
+
+  const comprarComboHref = (slug: string) =>
     userId
-      ? `/comprar/${slug}`
-      : `/login?redirect_url=${encodeURIComponent(`/comprar/${slug}`)}`;
+      ? `/comprar/combo/${slug}`
+      : `/login?redirect_url=${encodeURIComponent(`/comprar/combo/${slug}`)}`;
 
   return (
     <main className="catalog-page">
@@ -70,18 +73,11 @@ export default async function CatalogPage() {
 
         <div className="landing-shell catalog-hero-inner">
           <header className="landing-nav catalog-nav">
-            <Link
-              href="/"
-              aria-label="StreamClick, inicio"
-              className="landing-logo-wrap"
-            >
+            <Link href="/" aria-label="StreamClick, inicio" className="landing-logo-wrap">
               <Logo className="landing-logo" priority />
             </Link>
 
-            <nav
-              className="landing-nav-links"
-              aria-label="Navegación del catálogo"
-            >
+            <nav className="landing-nav-links" aria-label="Navegación del catálogo">
               <Link href="/" className="landing-nav-anchor catalog-home-link">
                 <ArrowLeft aria-hidden /> Inicio
               </Link>
@@ -113,8 +109,8 @@ export default async function CatalogPage() {
               Nosotros lo dejamos listo.
             </h1>
             <p>
-              Explora sin registrarte. Solo te pediremos iniciar sesión cuando
-              decidas comprar un perfil.
+              Explora sin registrarte. Solo te pediremos iniciar sesión cuando decidas comprar un
+              perfil.
             </p>
             <div className="catalog-hero-trust">
               <span>
@@ -131,20 +127,14 @@ export default async function CatalogPage() {
         </div>
       </section>
 
-      <section
-        className="catalog-products"
-        aria-labelledby="catalog-products-title"
-      >
+      <section className="catalog-products" aria-labelledby="catalog-products-title">
         <div className="landing-shell">
           <div className="catalog-section-header">
             <div>
               <p className="landing-section-label">Disponibilidad actual</p>
               <h2 id="catalog-products-title">Cuentas y perfiles</h2>
             </div>
-            <p>
-              Sin chats, sin comprobantes por mensaje y sin esperar una
-              respuesta.
-            </p>
+            <p>Sin chats, sin comprobantes por mensaje y sin esperar una respuesta.</p>
           </div>
 
           {/* Sin productos la rejilla NO desaparece: se dice que están en
@@ -153,8 +143,8 @@ export default async function CatalogPage() {
               de distinguirlo. */}
           {productos.length === 0 ? (
             <p className="catalog-product-description">
-              Estamos preparando los perfiles disponibles. Escríbenos y te
-              avisamos en cuanto abramos cupos.
+              Estamos preparando los perfiles disponibles. Escríbenos y te avisamos en cuanto
+              abramos cupos.
             </p>
           ) : (
             <div className="catalog-grid">
@@ -164,7 +154,7 @@ export default async function CatalogPage() {
                 return (
                   <article
                     key={product.slug}
-                    className={`catalog-product-card ${disponible ? "catalog-product-active" : "catalog-product-soon"}`}
+                    className={`catalog-product-card ${disponible ? 'catalog-product-active' : 'catalog-product-soon'}`}
                   >
                     <div className="catalog-product-order">0{index + 1}</div>
                     <div
@@ -178,11 +168,8 @@ export default async function CatalogPage() {
                     <div className="catalog-product-status">
                       {disponible ? (
                         <>
-                          <span className="catalog-status-dot" />{" "}
-                          {product.disponibles}{" "}
-                          {product.disponibles === 1
-                            ? "disponible"
-                            : "disponibles"}
+                          <span className="catalog-status-dot" /> {product.disponibles}{' '}
+                          {product.disponibles === 1 ? 'disponible' : 'disponibles'}
                         </>
                       ) : (
                         <>
@@ -196,8 +183,7 @@ export default async function CatalogPage() {
                     </p>
                     <h3>{product.nombre}</h3>
                     <p className="catalog-product-description">
-                      {product.lema ??
-                        "Tu propio perfil, sin compartir tu cuenta con nadie."}
+                      {product.lema ?? 'Tu propio perfil, sin compartir tu cuenta con nadie.'}
                     </p>
 
                     <ul>
@@ -209,22 +195,88 @@ export default async function CatalogPage() {
                     </ul>
 
                     {disponible ? (
-                      <Link
-                        href={comprarHref(product.slug)}
-                        className="catalog-buy-button"
-                      >
+                      <Link href={comprarHref(product.slug)} className="catalog-buy-button">
                         Comprar perfil <ArrowRight aria-hidden />
                       </Link>
                     ) : (
-                      <span className="catalog-buy-button catalog-buy-disabled">
-                        Muy pronto
-                      </span>
+                      <span className="catalog-buy-button catalog-buy-disabled">Muy pronto</span>
                     )}
                   </article>
                 );
               })}
             </div>
           )}
+
+          <div className="catalog-combos" aria-labelledby="catalog-combos-title">
+            <div className="catalog-section-header catalog-combos-header">
+              <div>
+                <p className="landing-section-label">Ahorra con el paquete</p>
+                <h2 id="catalog-combos-title">¡Combos!</h2>
+              </div>
+              <p>Varias aplicaciones, un solo pago mensual y un precio más conveniente.</p>
+            </div>
+
+            {combos.length === 0 ? (
+              <div className="catalog-combo-empty">
+                <Layers3 aria-hidden />
+                <p>Estamos armando los primeros combos. Muy pronto aparecerán aquí.</p>
+              </div>
+            ) : (
+              <div className="catalog-combo-grid">
+                {combos.map((combo) => {
+                  const disponible = combo.disponibles > 0;
+
+                  return (
+                    <article key={combo.slug} className="catalog-combo-card">
+                      <div className="catalog-combo-badge">
+                        <Layers3 aria-hidden /> Precio paquete
+                      </div>
+
+                      <div className="catalog-combo-apps" aria-label="Aplicaciones incluidas">
+                        {combo.servicios.map((servicio) => (
+                          <span key={servicio.slug}>
+                            <i aria-hidden style={{ backgroundColor: servicio.color }} />
+                            {servicio.nombre}
+                          </span>
+                        ))}
+                      </div>
+
+                      <h3>{combo.nombre}</h3>
+                      <p className="catalog-product-description">
+                        {combo.lema ?? 'Más contenido, menos gasto y todo listo en tu panel.'}
+                      </p>
+
+                      <div className="catalog-combo-price">
+                        <strong>{formatPrice(combo.precio, combo.moneda)}</strong>
+                        <span>/ mes</span>
+                      </div>
+
+                      <p className="catalog-product-status">
+                        {disponible ? (
+                          <>
+                            <span className="catalog-status-dot" /> {combo.disponibles}{' '}
+                            {combo.disponibles === 1 ? 'combo disponible' : 'combos disponibles'}
+                          </>
+                        ) : (
+                          <>
+                            <Clock3 aria-hidden /> Sin cupos ahora
+                          </>
+                        )}
+                      </p>
+
+                      {disponible ? (
+                        <Link href={comprarComboHref(combo.slug)} className="catalog-buy-button">
+                          Comprar combo <ArrowRight aria-hidden />
+                        </Link>
+                      ) : (
+                        <span className="catalog-buy-button catalog-buy-disabled">Muy pronto</span>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           <div className="catalog-explainer">
             <div className="catalog-explainer-icon">
@@ -235,8 +287,8 @@ export default async function CatalogPage() {
               <h2>¿Te piden un código? Ya está en tu panel.</h2>
             </div>
             <p>
-              StreamClick recibe la verificación y la muestra automáticamente
-              mientras todavía es válida. No tienes que escribirle a nadie.
+              StreamClick recibe la verificación y la muestra automáticamente mientras todavía es
+              válida. No tienes que escribirle a nadie.
             </p>
           </div>
         </div>

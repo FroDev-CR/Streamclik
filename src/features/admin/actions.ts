@@ -119,11 +119,15 @@ export async function createAccountAction(
       accountId: account.id,
       error: profilesError.message,
     });
-    return { error: 'La cuenta se creó, pero no se pudieron generar sus perfiles' };
+    return {
+      error: 'La cuenta se creó, pero no se pudieron generar sus perfiles',
+    };
   }
 
   revalidatePath('/admin');
-  return { success: `Cuenta "${parsed.data.label}" creada con ${parsed.data.maxProfiles} perfiles` };
+  return {
+    success: `Cuenta "${parsed.data.label}" creada con ${parsed.data.maxProfiles} perfiles`,
+  };
 }
 
 // -----------------------------------------------------------------------------
@@ -229,7 +233,10 @@ export async function deleteAccountAction(
   const { error } = await supabase.from('streaming_accounts').delete().eq('id', accountId);
 
   if (error) {
-    logger.error('Fallo al eliminar la cuenta', { accountId, error: error.message });
+    logger.error('Fallo al eliminar la cuenta', {
+      accountId,
+      error: error.message,
+    });
     return { error: 'No se pudo eliminar la cuenta' };
   }
 
@@ -333,7 +340,9 @@ export async function createPlatformAction(
 
   if (error) {
     if (error.code === '23505') {
-      return { error: `Ya existe una plataforma con el identificador «${parsed.data.slug}»` };
+      return {
+        error: `Ya existe una plataforma con el identificador «${parsed.data.slug}»`,
+      };
     }
     logger.error('Fallo al crear la plataforma', { error: error.message });
     return { error: 'No se pudo crear la plataforma' };
@@ -365,5 +374,110 @@ export async function togglePlatformAction(formData: FormData): Promise<void> {
   await supabase.from('streaming_services').update({ is_active: activar }).eq('id', id);
 
   revalidatePath('/admin/plataformas');
+  revalidatePath('/');
+}
+
+const comboSchema = z.object({
+  name: z.string().trim().min(2, 'Escribe un nombre').max(80, 'Máximo 80 caracteres'),
+  slug: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Usa minúsculas, números y guiones'),
+  priceAmount: z.coerce.number().min(0, 'El precio no puede ser negativo'),
+  tagline: z
+    .string()
+    .trim()
+    .max(160, 'Máximo 160 caracteres')
+    .optional()
+    .transform((value) => value || null),
+  serviceIds: z.array(z.string().uuid()).min(2, 'Elige al menos dos aplicaciones'),
+});
+
+/** Crea un combo y sus aplicaciones como una única configuración de catálogo. */
+export async function createComboAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireAdmin();
+
+  const parsed = comboSchema.safeParse({
+    name: formData.get('name'),
+    slug: formData.get('slug'),
+    priceAmount: formData.get('priceAmount'),
+    tagline: formData.get('tagline'),
+    serviceIds: formData.getAll('serviceIds'),
+  });
+
+  if (!parsed.success) {
+    return { fieldErrors: toFieldErrors(parsed.error.issues) };
+  }
+
+  const serviceIds = [...new Set(parsed.data.serviceIds)];
+  if (serviceIds.length < 2) {
+    return { fieldErrors: { serviceIds: 'Elige al menos dos aplicaciones' } };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data: combo, error: comboError } = await supabase
+    .from('streaming_combos')
+    .insert({
+      name: parsed.data.name,
+      slug: parsed.data.slug,
+      tagline: parsed.data.tagline,
+      price_amount: parsed.data.priceAmount,
+      price_currency: 'CRC',
+      is_active: true,
+    })
+    .select('id')
+    .single();
+
+  if (comboError || !combo) {
+    if (comboError?.code === '23505') {
+      return {
+        error: `Ya existe un combo con el identificador «${parsed.data.slug}»`,
+      };
+    }
+    logger.error('No se pudo crear el combo', { error: comboError?.message });
+    return { error: 'No se pudo crear el combo' };
+  }
+
+  const { error: itemsError } = await supabase.from('streaming_combo_items').insert(
+    serviceIds.map((serviceId) => ({
+      combo_id: combo.id,
+      service_id: serviceId,
+    })),
+  );
+
+  if (itemsError) {
+    await supabase.from('streaming_combos').delete().eq('id', combo.id);
+    logger.error('No se pudieron guardar las aplicaciones del combo', {
+      error: itemsError.message,
+    });
+    return { error: 'No se pudieron guardar las aplicaciones del combo' };
+  }
+
+  revalidatePath('/admin/plataformas');
+  revalidatePath('/catalogo');
+  revalidatePath('/');
+
+  return {
+    success: `«${parsed.data.name}» ya aparece en la sección de combos`,
+  };
+}
+
+/** Muestra u oculta un combo sin borrar sus pedidos históricos. */
+export async function toggleComboAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+
+  const id = String(formData.get('comboId') ?? '');
+  const activar = String(formData.get('activar') ?? '') === 'true';
+  if (!z.string().uuid().safeParse(id).success) return;
+
+  const supabase = await createSupabaseServerClient();
+  await supabase.from('streaming_combos').update({ is_active: activar }).eq('id', id);
+
+  revalidatePath('/admin/plataformas');
+  revalidatePath('/catalogo');
   revalidatePath('/');
 }

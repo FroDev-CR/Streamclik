@@ -22,6 +22,22 @@ export interface CatalogItem {
   total: number;
 }
 
+export interface CatalogComboService {
+  slug: string;
+  nombre: string;
+  color: string;
+}
+
+export interface CatalogCombo {
+  slug: string;
+  nombre: string;
+  lema: string | null;
+  precio: number;
+  moneda: string;
+  disponibles: number;
+  servicios: CatalogComboService[];
+}
+
 export async function getPublicCatalog(): Promise<CatalogItem[]> {
   try {
     const supabase = createSupabasePublicClient();
@@ -29,7 +45,9 @@ export async function getPublicCatalog(): Promise<CatalogItem[]> {
     const { data, error } = await supabase.rpc('catalogo_publico');
 
     if (error) {
-      logger.error('No se pudo leer el catálogo público', { error: error.message });
+      logger.error('No se pudo leer el catálogo público', {
+        error: error.message,
+      });
       return [];
     }
 
@@ -44,6 +62,35 @@ export async function getPublicCatalog(): Promise<CatalogItem[]> {
     // prerenderizar `/` en cualquier entorno sin configurar —CI incluido— con un
     // error de prerender que no señala la causa real.
     logger.error('El catálogo público no está disponible', {
+      error: causa instanceof Error ? causa.message : String(causa),
+    });
+    return [];
+  }
+}
+
+/** Combos públicos con stock calculado a partir del servicio más limitado. */
+export async function getPublicCombos(): Promise<CatalogCombo[]> {
+  try {
+    const supabase = createSupabasePublicClient();
+    const { data, error } = await supabase.rpc('combos_publicos');
+
+    if (error) {
+      logger.error('No se pudieron leer los combos públicos', {
+        error: error.message,
+      });
+      return [];
+    }
+
+    return (data ?? []).map((combo) => ({
+      ...combo,
+      precio: Number(combo.precio),
+      disponibles: Number(combo.disponibles),
+      servicios: Array.isArray(combo.servicios)
+        ? (combo.servicios as unknown as CatalogComboService[])
+        : [],
+    }));
+  } catch (causa) {
+    logger.error('Los combos públicos no están disponibles', {
       error: causa instanceof Error ? causa.message : String(causa),
     });
     return [];

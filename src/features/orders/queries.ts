@@ -19,6 +19,7 @@ export interface OrderRow {
   serviceName: string;
   serviceSlug: string;
   brandColor: string;
+  isCombo: boolean;
   priceAmount: number;
   priceCurrency: string;
   receiptPath: string | null;
@@ -51,7 +52,8 @@ interface QueryResult<T> {
 const SELECT_PEDIDO = `
   id, status, price_amount, price_currency, receipt_path, receipt_note,
   review_note, submitted_at, created_at,
-  streaming_services ( name, slug, brand_color )
+  streaming_services ( name, slug, brand_color ),
+  streaming_combos ( name, slug )
 `;
 
 type FilaPedido = {
@@ -64,16 +66,24 @@ type FilaPedido = {
   review_note: string | null;
   submitted_at: string | null;
   created_at: string;
-  streaming_services: { name: string; slug: string; brand_color: string } | null;
+  streaming_services: {
+    name: string;
+    slug: string;
+    brand_color: string;
+  } | null;
+  streaming_combos: { name: string; slug: string } | null;
 };
 
 function mapear(fila: FilaPedido): OrderRow {
   return {
     id: fila.id,
     status: fila.status,
-    serviceName: fila.streaming_services?.name ?? 'Servicio',
-    serviceSlug: fila.streaming_services?.slug ?? '',
-    brandColor: fila.streaming_services?.brand_color ?? '#666666',
+    serviceName: fila.streaming_combos?.name ?? fila.streaming_services?.name ?? 'Servicio',
+    serviceSlug: fila.streaming_combos?.slug ?? fila.streaming_services?.slug ?? '',
+    brandColor: fila.streaming_combos
+      ? '#075dff'
+      : (fila.streaming_services?.brand_color ?? '#666666'),
+    isCombo: Boolean(fila.streaming_combos),
     priceAmount: Number(fila.price_amount),
     priceCurrency: fila.price_currency,
     receiptPath: fila.receipt_path,
@@ -94,11 +104,16 @@ export async function getMyOrders(): Promise<QueryResult<OrderRow[]>> {
     .order('created_at', { ascending: false });
 
   if (error) {
-    logger.error('No se pudieron leer los pedidos del cliente', { error: error.message });
+    logger.error('No se pudieron leer los pedidos del cliente', {
+      error: error.message,
+    });
     return { data: [], error: error.message };
   }
 
-  return { data: ((data ?? []) as unknown as FilaPedido[]).map(mapear), error: null };
+  return {
+    data: ((data ?? []) as unknown as FilaPedido[]).map(mapear),
+    error: null,
+  };
 }
 
 /**
@@ -131,7 +146,11 @@ export async function getPendingOrders(): Promise<QueryResult<AdminOrderRow[]>> 
 
   type FilaAdmin = FilaPedido & {
     user_id: string;
-    user_profiles: { email: string; full_name: string | null; phone: string | null } | null;
+    user_profiles: {
+      email: string;
+      full_name: string | null;
+      phone: string | null;
+    } | null;
   };
 
   const filas = (data ?? []) as unknown as FilaAdmin[];
@@ -203,4 +222,43 @@ export async function getServiceBySlug(slug: string) {
     .maybeSingle();
 
   return data;
+}
+
+/** Combo por slug con las aplicaciones incluidas, para la pantalla de compra. */
+export async function getComboBySlug(slug: string) {
+  const supabase = await createSupabaseServerClient();
+
+  const { data } = await supabase
+    .from('streaming_combos')
+    .select(
+      `id, name, slug, tagline, price_amount, price_currency,
+       streaming_combo_items (
+         streaming_services ( id, name, slug, brand_color, is_active )
+       )`,
+    )
+    .eq('slug', slug)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (!data) return null;
+
+  type ComboRow = typeof data & {
+    streaming_combo_items: Array<{
+      streaming_services: {
+        id: string;
+        name: string;
+        slug: string;
+        brand_color: string;
+        is_active: boolean;
+      } | null;
+    }>;
+  };
+
+  const combo = data as unknown as ComboRow;
+  const services = combo.streaming_combo_items
+    .map((item) => item.streaming_services)
+    .filter((service): service is NonNullable<typeof service> => Boolean(service?.is_active));
+
+  if (services.length < 2) return null;
+  return { ...combo, services };
 }

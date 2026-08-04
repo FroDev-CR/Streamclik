@@ -77,7 +77,8 @@ function BotonCopiar({ valor }: { valor: string }) {
 }
 
 export interface CheckoutFormProps {
-  serviceId: string;
+  productId: string;
+  productType?: 'service' | 'combo';
   serviceName: string;
   brandColor: string;
   priceAmount: number;
@@ -85,10 +86,12 @@ export interface CheckoutFormProps {
   sinpeNumber: string;
   sinpeName: string;
   instructions: string;
+  includedServices?: string[];
 }
 
 export function CheckoutForm({
-  serviceId,
+  productId,
+  productType = 'service',
   serviceName,
   brandColor,
   priceAmount,
@@ -96,6 +99,7 @@ export function CheckoutForm({
   sinpeNumber,
   sinpeName,
   instructions,
+  includedServices = [],
 }: CheckoutFormProps) {
   const [state, formAction] = useActionState<ActionState, FormData>(crearPedidoAction, {});
   const [nombreArchivo, setNombreArchivo] = useState<string | null>(null);
@@ -117,8 +121,16 @@ export function CheckoutForm({
           <div className="min-w-0">
             <CardTitle>{serviceName}</CardTitle>
             <p className="text-sm text-[var(--color-content-muted)]">
-              {monto} al mes · un perfil sólo tuyo
+              {monto} al mes ·{' '}
+              {productType === 'combo'
+                ? `${includedServices.length} perfiles incluidos`
+                : 'un perfil sólo tuyo'}
             </p>
+            {includedServices.length > 0 && (
+              <p className="mt-1 text-xs font-semibold text-[var(--color-content-muted)]">
+                {includedServices.join(' + ')}
+              </p>
+            )}
           </div>
         </CardHeader>
 
@@ -180,7 +192,8 @@ export function CheckoutForm({
 
         <CardContent>
           <form action={formAction} className="flex flex-col gap-4">
-            <input type="hidden" name="serviceId" value={serviceId} />
+            <input type="hidden" name="productId" value={productId} />
+            <input type="hidden" name="productType" value={productType} />
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="receipt">Captura del pago</Label>
