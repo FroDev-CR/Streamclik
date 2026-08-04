@@ -30,11 +30,36 @@ const kanit = Kanit({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://streamclick.xyz'),
   title: {
     default: 'StreamClick',
     template: '%s · StreamClick',
   },
-  description: 'Gestiona tus cuentas de streaming compartidas y recibe los códigos al instante.',
+  description:
+    'Elige tu plataforma, compra y recibe tu perfil automáticamente. Sin chats ni esperas.',
+  openGraph: {
+    type: 'website',
+    locale: 'es_CR',
+    url: '/',
+    siteName: 'StreamClick',
+    title: 'StreamClick · Todo automático',
+    description:
+      'Netflix, Disney+, Max y Prime Video. Elige, paga y recibe automáticamente.',
+    images: [
+      {
+        url: '/og.png',
+        width: 840,
+        height: 837,
+        alt: 'StreamClick: todo automático. Elige, paga y recibe.',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'StreamClick · Todo automático',
+    description: 'Elige, paga y recibe. Sin chats ni esperas.',
+    images: ['/og.png'],
+  },
   // La aplicación maneja credenciales de terceros: no debe aparecer en buscadores.
   robots: { index: false, follow: false },
 };
