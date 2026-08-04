@@ -28,6 +28,8 @@ export type NotificationChannelDb = 'realtime' | 'whatsapp' | 'telegram' | 'push
 export type NotificationStatusDb = 'pending' | 'sent' | 'failed' | 'skipped';
 export type OrderStatusDb =
   'esperando_comprobante' | 'esperando_revision' | 'entregado' | 'rechazado' | 'cancelado';
+export type RewardSourceDb = 'referral' | 'admin';
+export type RewardStatusDb = 'available' | 'claimed' | 'cancelled';
 
 /** Tablas sin columnas modificables por la API (sólo las escribe el webhook). */
 type NoUpdates = Record<string, never>;
@@ -44,6 +46,7 @@ export interface Database {
           full_name: string | null;
           phone: string | null;
           role: UserRole;
+          referral_code: string;
           telegram_chat_id: string | null;
           notification_preferences: Json;
           created_at: string;
@@ -58,6 +61,7 @@ export interface Database {
           full_name?: string | null;
           phone?: string | null;
           role?: UserRole;
+          referral_code?: string;
           telegram_chat_id?: string | null;
           notification_preferences?: Json;
         };
@@ -65,6 +69,7 @@ export interface Database {
           full_name?: string | null;
           phone?: string | null;
           role?: UserRole;
+          referral_code?: string;
           telegram_chat_id?: string | null;
           notification_preferences?: Json;
         };
@@ -445,6 +450,8 @@ export interface Database {
           user_id: string;
           service_id: string | null;
           combo_id: string | null;
+          referrer_user_id: string | null;
+          referral_code_used: string | null;
           price_amount: number;
           price_currency: string;
           status: OrderStatusDb;
@@ -462,6 +469,8 @@ export interface Database {
           user_id: string;
           service_id?: string | null;
           combo_id?: string | null;
+          referrer_user_id?: string | null;
+          referral_code_used?: string | null;
           price_amount: number;
           price_currency?: string;
           status?: OrderStatusDb;
@@ -480,6 +489,8 @@ export interface Database {
           assignment_id?: string | null;
           service_id?: string | null;
           combo_id?: string | null;
+          referrer_user_id?: string | null;
+          referral_code_used?: string | null;
         };
         Relationships: [
           {
@@ -501,6 +512,13 @@ export interface Database {
             columns: ['combo_id'];
             isOneToOne: false;
             referencedRelation: 'streaming_combos';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'orders_referrer_user_id_fkey';
+            columns: ['referrer_user_id'];
+            isOneToOne: false;
+            referencedRelation: 'user_profiles';
             referencedColumns: ['id'];
           },
         ];
@@ -555,6 +573,82 @@ export interface Database {
           instructions?: string;
         };
         Relationships: [];
+      };
+
+      profile_rewards: {
+        Row: {
+          id: string;
+          user_id: string;
+          source: RewardSourceDb;
+          status: RewardStatusDb;
+          duration_days: number;
+          note: string | null;
+          referral_order_id: string | null;
+          created_by: string | null;
+          claimed_service_id: string | null;
+          claimed_assignment_id: string | null;
+          claimed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          source: RewardSourceDb;
+          status?: RewardStatusDb;
+          duration_days?: number;
+          note?: string | null;
+          referral_order_id?: string | null;
+          created_by?: string | null;
+          claimed_service_id?: string | null;
+          claimed_assignment_id?: string | null;
+          claimed_at?: string | null;
+        };
+        Update: {
+          status?: RewardStatusDb;
+          duration_days?: number;
+          note?: string | null;
+          claimed_service_id?: string | null;
+          claimed_assignment_id?: string | null;
+          claimed_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'profile_rewards_user_id_fkey';
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'user_profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'profile_rewards_referral_order_id_fkey';
+            columns: ['referral_order_id'];
+            isOneToOne: true;
+            referencedRelation: 'orders';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'profile_rewards_created_by_fkey';
+            columns: ['created_by'];
+            isOneToOne: false;
+            referencedRelation: 'user_profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'profile_rewards_claimed_service_id_fkey';
+            columns: ['claimed_service_id'];
+            isOneToOne: false;
+            referencedRelation: 'streaming_services';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'profile_rewards_claimed_assignment_id_fkey';
+            columns: ['claimed_assignment_id'];
+            isOneToOne: true;
+            referencedRelation: 'profile_assignments';
+            referencedColumns: ['id'];
+          },
+        ];
       };
 
       audit_logs: {
@@ -689,6 +783,14 @@ export interface Database {
       };
       soltar_cuenta: {
         Args: { p_order_id: string; p_expires_at?: string | null };
+        Returns: Json;
+      };
+      resolve_referral_code: {
+        Args: { p_code: string };
+        Returns: Json;
+      };
+      reclamar_recompensa: {
+        Args: { p_reward_id: string; p_service_id: string };
         Returns: Json;
       };
       expire_due_assignments: {

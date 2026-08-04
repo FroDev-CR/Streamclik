@@ -1,6 +1,16 @@
 import { SignOutButton } from '@clerk/nextjs';
 import Link from 'next/link';
-import { Boxes, Inbox, LayoutGrid, LogOut, Settings, ShoppingBag, Users, Wallet } from 'lucide-react';
+import {
+  Boxes,
+  Inbox,
+  LayoutGrid,
+  LogOut,
+  Settings,
+  ShoppingBag,
+  UserRound,
+  Users,
+  Wallet,
+} from 'lucide-react';
 
 import { Logo } from '@/components/logo';
 import { Button } from '@/components/ui/button';
@@ -31,7 +41,7 @@ export const dynamic = 'force-dynamic';
  */
 const NAV_CLIENTE = [
   { href: '/dashboard', icono: LayoutGrid, etiqueta: 'Mis suscripciones' },
-  { href: '/configuracion', icono: Settings, etiqueta: 'Configuración' },
+  { href: '/perfil', icono: UserRound, etiqueta: 'Mi perfil' },
   { href: '/catalogo', icono: ShoppingBag, etiqueta: 'Comprar más' },
 ] as const;
 

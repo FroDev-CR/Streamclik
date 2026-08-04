@@ -25,6 +25,7 @@ export interface OrderRow {
   receiptPath: string | null;
   receiptNote: string | null;
   reviewNote: string | null;
+  referralCode: string | null;
   submittedAt: string | null;
   createdAt: string;
 }
@@ -51,7 +52,7 @@ interface QueryResult<T> {
 
 const SELECT_PEDIDO = `
   id, status, price_amount, price_currency, receipt_path, receipt_note,
-  review_note, submitted_at, created_at,
+  review_note, referral_code_used, submitted_at, created_at,
   streaming_services ( name, slug, brand_color ),
   streaming_combos ( name, slug )
 `;
@@ -64,6 +65,7 @@ type FilaPedido = {
   receipt_path: string | null;
   receipt_note: string | null;
   review_note: string | null;
+  referral_code_used: string | null;
   submitted_at: string | null;
   created_at: string;
   streaming_services: {
@@ -89,6 +91,7 @@ function mapear(fila: FilaPedido): OrderRow {
     receiptPath: fila.receipt_path,
     receiptNote: fila.receipt_note,
     reviewNote: fila.review_note,
+    referralCode: fila.referral_code_used,
     submittedAt: fila.submitted_at,
     createdAt: fila.created_at,
   };

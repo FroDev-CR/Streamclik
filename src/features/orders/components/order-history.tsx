@@ -169,6 +169,12 @@ function PedidoCard({ order }: { order: OrderRow }) {
           </p>
         )}
 
+        {order.referralCode && (
+          <p className="rounded-xl border-2 border-[var(--color-border)] bg-[var(--color-brand-yellow)] px-3 py-2 text-xs">
+            Código aplicado: <span className="font-mono font-bold">{order.referralCode}</span>
+          </p>
+        )}
+
         {faltaComprobante && <FormularioComprobante orderId={order.id} />}
 
         {(pendiente || faltaComprobante) && <BotonCancelar orderId={order.id} />}

@@ -112,6 +112,12 @@ const pedidoSchema = z.object({
     .max(280, 'La nota no puede superar los 280 caracteres')
     .optional()
     .transform((v) => (v ? v : null)),
+  referralCode: z
+    .string()
+    .trim()
+    .max(20, 'El código de invitación no es válido')
+    .optional()
+    .transform((value) => (value ? value.toUpperCase() : null)),
 });
 
 /**
@@ -135,6 +141,7 @@ export async function crearPedidoAction(
     productId: formData.get('productId'),
     productType: formData.get('productType'),
     note: formData.get('note'),
+    referralCode: formData.get('referralCode'),
   });
 
   if (!parsed.success) {
@@ -147,6 +154,46 @@ export async function crearPedidoAction(
   }
 
   const supabase = await createSupabaseServerClient();
+
+  let referrerUserId: string | null = null;
+  let referralCodeUsed: string | null = null;
+
+  if (parsed.data.referralCode) {
+    const { data: referralData, error: referralError } = await supabase.rpc(
+      'resolve_referral_code',
+      { p_code: parsed.data.referralCode },
+    );
+
+    if (referralError) {
+      logger.error('No se pudo validar el código de invitación', {
+        error: referralError.message,
+      });
+      return { error: 'No pudimos validar el código. Inténtalo de nuevo.' };
+    }
+
+    const referral = (referralData ?? {}) as {
+      status?: string;
+      user_id?: string;
+      code?: string;
+    };
+
+    if (referral.status === 'codigo_propio') {
+      return {
+        fieldErrors: {
+          referralCode: 'No puedes usar tu propio código de invitación.',
+        },
+      };
+    }
+
+    if (referral.status !== 'valido' || !referral.user_id || !referral.code) {
+      return {
+        fieldErrors: { referralCode: 'Ese código de invitación no existe.' },
+      };
+    }
+
+    referrerUserId = referral.user_id;
+    referralCodeUsed = referral.code;
+  }
 
   const producto =
     parsed.data.productType === 'combo'
@@ -176,6 +223,8 @@ export async function crearPedidoAction(
       price_amount: producto.data.price_amount,
       price_currency: producto.data.price_currency,
       receipt_note: parsed.data.note,
+      referrer_user_id: referrerUserId,
+      referral_code_used: referralCodeUsed,
     })
     .select('id')
     .single();
@@ -209,13 +258,12 @@ export async function crearPedidoAction(
     };
   }
 
-  revalidatePath('/dashboard');
-  revalidatePath('/dashboard');
+  revalidatePath('/perfil');
   revalidatePath('/admin/pagos');
 
   // Fuera de cualquier try: `redirect()` lanza NEXT_REDIRECT por diseño y un
   // catch lo tragaría, dejando el formulario sin navegar y sin error visible.
-  redirect('/dashboard#historial-compras');
+  redirect('/perfil#historial-compras');
 }
 
 /**
@@ -229,7 +277,7 @@ export async function subirComprobanteAction(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const user = await requireUser('/dashboard#historial-compras');
+  const user = await requireUser('/perfil#historial-compras');
 
   const orderId = z.string().uuid().safeParse(formData.get('orderId'));
   if (!orderId.success) {
@@ -266,7 +314,7 @@ export async function subirComprobanteAction(
     return { error: 'No se pudo enviar el comprobante a revisión.' };
   }
 
-  revalidatePath('/dashboard');
+  revalidatePath('/perfil');
   revalidatePath('/admin/pagos');
 
   return {
@@ -279,7 +327,7 @@ export async function cancelarPedidoAction(
   _prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireUser('/dashboard#historial-compras');
+  await requireUser('/perfil#historial-compras');
 
   const orderId = z.string().uuid().safeParse(formData.get('orderId'));
   if (!orderId.success) {
@@ -298,7 +346,7 @@ export async function cancelarPedidoAction(
     return { error: 'No se pudo cancelar el pedido.' };
   }
 
-  revalidatePath('/dashboard');
+  revalidatePath('/perfil');
   revalidatePath('/admin/pagos');
 
   return { success: 'Pedido cancelado' };
@@ -358,7 +406,8 @@ export async function soltarCuentaAction(
   revalidatePath('/admin/pagos');
   revalidatePath('/admin');
   revalidatePath('/dashboard');
-  revalidatePath('/dashboard');
+  revalidatePath('/perfil');
+  revalidatePath('/admin/clientes');
 
   // Cada resultado del RPC se traduce a un mensaje concreto. «Sin cupos» no es
   // un error del operador ni del comprobante: es inventario que falta, y decirlo
@@ -430,7 +479,7 @@ export async function rechazarPedidoAction(
   }
 
   revalidatePath('/admin/pagos');
-  revalidatePath('/dashboard');
+  revalidatePath('/perfil');
 
   return { success: 'Pedido rechazado' };
 }

@@ -229,6 +229,19 @@ export function CheckoutForm({
             </div>
 
             <div className="flex flex-col gap-1.5">
+              <Label htmlFor="referralCode">Código de invitación (opcional)</Label>
+              <Input
+                id="referralCode"
+                name="referralCode"
+                placeholder="SC-12AB34CD"
+                maxLength={20}
+                autoCapitalize="characters"
+                error={state.fieldErrors?.referralCode}
+                hint="Si alguien te invitó, escribe su código. No puedes usar el tuyo."
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor="note">Nota (opcional)</Label>
               <Input
                 id="note"

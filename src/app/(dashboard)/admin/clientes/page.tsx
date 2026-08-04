@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { requireAdmin } from '@/features/auth/session';
 import { getAdminClients } from '@/features/admin/queries';
+import { AdminRewards } from '@/features/rewards/components/admin-rewards';
 import { formatDateTime } from '@/lib/utils';
 
 export const metadata: Metadata = { title: 'Clientes' };
@@ -87,13 +88,22 @@ export default async function ClientesPage() {
                       <Phone aria-hidden className="size-3" />
                       {cliente.phone ?? 'sin teléfono'}
                     </span>
+                    <span className="font-mono">Código: {cliente.referralCode}</span>
                   </p>
                 </div>
 
-                <Badge tone={cliente.suscripciones.length > 0 ? 'success' : 'neutral'}>
-                  {cliente.suscripciones.length}{' '}
-                  {cliente.suscripciones.length === 1 ? 'activa' : 'activas'}
-                </Badge>
+                <div className="flex flex-wrap gap-2">
+                  {cliente.rewards.some((reward) => reward.status === 'available') && (
+                    <Badge tone="accent">
+                      {cliente.rewards.filter((reward) => reward.status === 'available').length} por
+                      reclamar
+                    </Badge>
+                  )}
+                  <Badge tone={cliente.suscripciones.length > 0 ? 'success' : 'neutral'}>
+                    {cliente.suscripciones.length}{' '}
+                    {cliente.suscripciones.length === 1 ? 'activa' : 'activas'}
+                  </Badge>
+                </div>
               </div>
 
               <CardContent className="p-4">
@@ -129,6 +139,8 @@ export default async function ClientesPage() {
                     ))}
                   </ul>
                 )}
+
+                <AdminRewards userId={cliente.id} rewards={cliente.rewards} />
               </CardContent>
             </Card>
           ))}

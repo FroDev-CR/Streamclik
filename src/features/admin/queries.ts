@@ -315,6 +315,7 @@ export interface AdminClientRow {
   email: string;
   fullName: string | null;
   phone: string | null;
+  referralCode: string;
   createdAt: string;
   suscripciones: Array<{
     assignmentId: string;
@@ -323,6 +324,15 @@ export interface AdminClientRow {
     accountLabel: string;
     profileLabel: string;
     expiresAt: string | null;
+  }>;
+  rewards: Array<{
+    id: string;
+    status: 'available' | 'claimed' | 'cancelled';
+    source: 'referral' | 'admin';
+    durationDays: number;
+    note: string | null;
+    serviceName: string | null;
+    createdAt: string;
   }>;
 }
 
@@ -346,13 +356,17 @@ export async function getAdminClients(): Promise<QueryResult<AdminClientRow[]>> 
     .from('user_profiles')
     .select(
       `
-      id, email, full_name, phone, created_at,
+      id, email, full_name, phone, referral_code, created_at,
       profile_assignments!profile_assignments_user_id_fkey (
         id, status, expires_at,
         account_profiles (
           label,
           streaming_accounts ( label, streaming_services ( name, brand_color ) )
         )
+      ),
+      profile_rewards!profile_rewards_user_id_fkey (
+        id, status, source, duration_days, note, created_at,
+        claimed_service:streaming_services!profile_rewards_claimed_service_id_fkey ( name )
       )
     `,
     )
@@ -372,6 +386,7 @@ export async function getAdminClients(): Promise<QueryResult<AdminClientRow[]>> 
     email: string;
     full_name: string | null;
     phone: string | null;
+    referral_code: string;
     created_at: string;
     profile_assignments: Array<{
       id: string;
@@ -385,6 +400,15 @@ export async function getAdminClients(): Promise<QueryResult<AdminClientRow[]>> 
         } | null;
       } | null;
     }>;
+    profile_rewards: Array<{
+      id: string;
+      status: 'available' | 'claimed' | 'cancelled';
+      source: 'referral' | 'admin';
+      duration_days: number;
+      note: string | null;
+      created_at: string;
+      claimed_service: { name: string } | null;
+    }>;
   };
 
   return {
@@ -393,6 +417,7 @@ export async function getAdminClients(): Promise<QueryResult<AdminClientRow[]>> 
       email: fila.email,
       fullName: fila.full_name,
       phone: fila.phone,
+      referralCode: fila.referral_code,
       createdAt: fila.created_at,
       suscripciones: fila.profile_assignments
         // Sólo lo vigente: el historial de asignaciones revocadas es útil para
@@ -409,6 +434,17 @@ export async function getAdminClients(): Promise<QueryResult<AdminClientRow[]>> 
           profileLabel: asignacion.account_profiles?.label ?? '—',
           expiresAt: asignacion.expires_at,
         })),
+      rewards: fila.profile_rewards
+        .map((reward) => ({
+          id: reward.id,
+          status: reward.status,
+          source: reward.source,
+          durationDays: reward.duration_days,
+          note: reward.note,
+          serviceName: reward.claimed_service?.name ?? null,
+          createdAt: reward.created_at,
+        }))
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     })),
     error: null,
   };

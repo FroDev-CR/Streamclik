@@ -1,15 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { AlertTriangle, Inbox, Receipt, Sparkles } from 'lucide-react';
+import { Inbox, Sparkles } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { SubscriptionCard } from '@/features/accounts/components/subscription-card';
 import { getMyAccounts } from '@/features/accounts/queries';
 import { requireUser } from '@/features/auth/session';
-import { OrderHistory } from '@/features/orders/components/order-history';
-import { getMyOrders } from '@/features/orders/queries';
 import { getLivePins } from '@/features/pins/queries';
 import { yaCompletoOnboarding } from '@/features/settings/onboarding';
 
@@ -39,7 +37,7 @@ export default async function MisSuscripcionesPage() {
   // usando la aplicación tiene mucha menos respuesta.
   if (!yaCompletoOnboarding(user.profile)) redirect('/bienvenida');
 
-  const [accounts, pedidos] = await Promise.all([getMyAccounts(user.id), getMyOrders()]);
+  const accounts = await getMyAccounts(user.id);
 
   // Los códigos en vivo se piden en paralelo: encadenarlos sumaría una ida y
   // vuelta por suscripción antes de poder pintar nada.
@@ -97,45 +95,6 @@ export default async function MisSuscripcionesPage() {
           ))}
         </div>
       )}
-
-      <section
-        id="historial-compras"
-        className="mt-6 flex scroll-mt-28 flex-col gap-5 border-t-2 border-[var(--color-border)] pt-8"
-      >
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="flex items-center gap-2 font-[family-name:var(--font-display)] text-xs font-extrabold uppercase tracking-[0.15em] text-[var(--color-content-muted)]">
-              <Receipt aria-hidden className="size-4" strokeWidth={2.5} />
-              Tus pedidos
-            </p>
-            <h2 className="mt-2 font-[family-name:var(--font-display)] text-3xl font-black uppercase leading-[0.9] tracking-[-0.045em] sm:text-4xl">
-              Historial de compras
-            </h2>
-          </div>
-
-          <Link href="/catalogo">
-            <Button variant="secondary">
-              <Sparkles aria-hidden className="size-4" strokeWidth={2.5} />
-              Comprar más
-            </Button>
-          </Link>
-        </header>
-
-        {pedidos.error && (
-          <div
-            role="alert"
-            className="rounded-2xl border-[3px] border-[var(--color-danger)] bg-[var(--color-danger)]/8 p-4 shadow-[5px_5px_0_var(--color-danger)]"
-          >
-            <p className="flex items-center gap-2 font-[family-name:var(--font-display)] text-sm font-black uppercase text-[var(--color-danger)]">
-              <AlertTriangle aria-hidden className="size-4" strokeWidth={2.5} />
-              No se pudo cargar tu historial
-            </p>
-            <p className="mt-2 font-mono text-xs">{pedidos.error}</p>
-          </div>
-        )}
-
-        <OrderHistory orders={pedidos.data} />
-      </section>
     </div>
   );
 }

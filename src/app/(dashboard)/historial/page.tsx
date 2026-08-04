@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 
-/** Compatibilidad con enlaces antiguos: el historial ahora vive en Suscripciones. */
+/** Compatibilidad con enlaces antiguos: el historial ahora vive en Mi perfil. */
 export default function HistorialPage() {
-  redirect('/dashboard#historial-compras');
+  redirect('/perfil#historial-compras');
 }
