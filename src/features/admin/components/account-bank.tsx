@@ -1,7 +1,7 @@
 'use client';
 
 import { useActionState, useMemo, useState } from 'react';
-import { ChevronDown, Inbox, Search, Trash2, UserPlus } from 'lucide-react';
+import { Check, ChevronDown, Copy, Eye, EyeOff, Inbox, Search, Trash2, UserPlus } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -190,6 +190,53 @@ function ConfirmDelete({ account, onCancel }: { account: AdminAccountRow; onCanc
           Cancelar
         </Button>
       </div>
+    </div>
+  );
+}
+
+/** Contraseña de la cuenta, oculta hasta que el operador decide revelarla. */
+function AccountPassword({ password }: { password: string | null }) {
+  const [visible, setVisible] = useState(false);
+  const [copiada, setCopiada] = useState(false);
+
+  async function copiar() {
+    if (!password) return;
+
+    try {
+      await navigator.clipboard.writeText(password);
+      setCopiada(true);
+      setTimeout(() => setCopiada(false), 2000);
+    } catch {
+      // Si el navegador bloquea el portapapeles, todavía puede revelarse y
+      // seleccionarse el valor manualmente.
+    }
+  }
+
+  if (!password) {
+    return <span className="text-xs font-semibold text-[var(--color-warning)]">No disponible</span>;
+  }
+
+  return (
+    <div className="flex min-w-0 items-center gap-1">
+      <span className="min-w-0 flex-1 truncate font-mono text-xs">
+        {visible ? password : '•'.repeat(Math.min(password.length, 12))}
+      </span>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={() => setVisible((actual) => !actual)}
+        aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+      >
+        {visible ? <EyeOff aria-hidden className="size-3.5" /> : <Eye aria-hidden className="size-3.5" />}
+      </Button>
+      <Button type="button" variant="ghost" size="sm" onClick={copiar} aria-label="Copiar contraseña">
+        {copiada ? (
+          <Check aria-hidden className="size-3.5 text-[var(--color-success)]" />
+        ) : (
+          <Copy aria-hidden className="size-3.5" />
+        )}
+      </Button>
     </div>
   );
 }
@@ -409,7 +456,7 @@ function AccountCard({
               hace que los códigos no lleguen. El buzón de ingesta es donde
               escribe la plataforma; el correo de acceso es el que usa el
               cliente para entrar. */}
-          <dl className="grid gap-3 border-b-2 border-[var(--color-border)] bg-[var(--color-canvas)] p-4 sm:grid-cols-2">
+          <dl className="grid gap-3 border-b-2 border-[var(--color-border)] bg-[var(--color-canvas)] p-4 sm:grid-cols-3">
             <div className="min-w-0">
               <dt className="text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--color-content-subtle)]">
                 Buzón de códigos
@@ -421,6 +468,14 @@ function AccountCard({
                 Correo de acceso
               </dt>
               <dd className="truncate font-mono text-xs">{account.loginEmail}</dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-[0.65rem] font-semibold uppercase tracking-wide text-[var(--color-content-subtle)]">
+                Contraseña
+              </dt>
+              <dd>
+                <AccountPassword password={account.loginPassword} />
+              </dd>
             </div>
           </dl>
 

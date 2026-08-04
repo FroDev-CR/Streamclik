@@ -5,12 +5,7 @@ import { AlertTriangle, Boxes, Plus, Sparkles, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { requireAdmin } from '@/features/auth/session';
 import { AccountBank } from '@/features/admin/components/account-bank';
-import { InboxMonitor } from '@/features/admin/components/inbox-monitor';
-import {
-  getAdminAccounts,
-  getClientOptions,
-  getRecentInboundEmails,
-} from '@/features/admin/queries';
+import { getAdminAccounts, getClientOptions } from '@/features/admin/queries';
 
 export const metadata: Metadata = { title: 'Banco de cuentas' };
 
@@ -55,17 +50,13 @@ function Metrica({
 export default async function AdminPage() {
   await requireAdmin();
 
-  const [clientes, inventario, correos] = await Promise.all([
-    getClientOptions(),
-    getAdminAccounts(),
-    getRecentInboundEmails(),
-  ]);
+  const [clientes, inventario] = await Promise.all([getClientOptions(), getAdminAccounts()]);
 
   // Los fallos de consulta se muestran en pantalla en lugar de degradar a una
   // lista vacía: un inventario vacío por error es indistinguible de uno vacío de
   // verdad, y esa ambigüedad hizo que "la cuenta se crea pero no aparece"
   // resultara imposible de diagnosticar.
-  const fallos = [clientes.error, inventario.error, correos.error].filter(
+  const fallos = [clientes.error, inventario.error].filter(
     (mensaje): mensaje is string => Boolean(mensaje),
   );
 
@@ -125,8 +116,6 @@ export default async function AdminPage() {
       </div>
 
       <AccountBank accounts={cuentas} clients={clientes.data} />
-
-      <InboxMonitor emails={correos.data} />
     </div>
   );
 }

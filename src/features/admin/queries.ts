@@ -3,6 +3,7 @@ import 'server-only';
 import { createSupabaseServerClient } from '@/infrastructure/supabase/server';
 import type { AccountStatus, AssignmentStatus } from '@/core/domain/entities';
 import type { RawEmail } from '@/core/ports/email-parser';
+import { tryDecrypt } from '@/infrastructure/crypto/credential-cipher';
 import { htmlToText } from '@/infrastructure/email/html-to-text';
 import { emailParsers } from '@/infrastructure/email/parsers/registry';
 import { logger } from '@/lib/logger';
@@ -52,6 +53,7 @@ export interface AdminAccountRow {
   label: string;
   inboxEmail: string;
   loginEmail: string;
+  loginPassword: string | null;
   serviceName: string;
   brandColor: string;
   status: AccountStatus;
@@ -222,7 +224,7 @@ export async function getAdminAccounts(): Promise<QueryResult<AdminAccountRow[]>
     .from('streaming_accounts')
     .select(
       `
-      id, label, inbox_email, login_email, status, max_profiles,
+      id, label, inbox_email, login_email, login_password_enc, status, max_profiles,
       streaming_services ( name, brand_color ),
       account_profiles (
         id, label, slot_index,
@@ -250,6 +252,7 @@ export async function getAdminAccounts(): Promise<QueryResult<AdminAccountRow[]>
     label: string;
     inbox_email: string;
     login_email: string;
+    login_password_enc: string;
     status: AccountStatus;
     max_profiles: number;
     streaming_services: { name: string; brand_color: string } | null;
@@ -273,6 +276,7 @@ export async function getAdminAccounts(): Promise<QueryResult<AdminAccountRow[]>
       label: account.label,
       inboxEmail: account.inbox_email,
       loginEmail: account.login_email,
+      loginPassword: tryDecrypt(account.login_password_enc),
       serviceName: account.streaming_services?.name ?? 'Servicio',
       brandColor: account.streaming_services?.brand_color ?? '#666666',
       status: account.status,

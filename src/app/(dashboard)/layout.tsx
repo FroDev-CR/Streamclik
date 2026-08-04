@@ -1,6 +1,6 @@
 import { SignOutButton } from '@clerk/nextjs';
 import Link from 'next/link';
-import { Boxes, LayoutGrid, LogOut, Settings, ShoppingBag, Users, Wallet } from 'lucide-react';
+import { Boxes, Inbox, LayoutGrid, LogOut, Settings, ShoppingBag, Users, Wallet } from 'lucide-react';
 
 import { Logo } from '@/components/logo';
 import { Button } from '@/components/ui/button';
@@ -37,6 +37,7 @@ const NAV_CLIENTE = [
 
 const NAV_ADMIN = [
   { href: '/admin', icono: Boxes, etiqueta: 'Banco' },
+  { href: '/admin/buzon', icono: Inbox, etiqueta: 'Buzón' },
   { href: '/admin/pagos', icono: Wallet, etiqueta: 'Pagos' },
   { href: '/admin/clientes', icono: Users, etiqueta: 'Clientes' },
   { href: '/admin/plataformas', icono: Settings, etiqueta: 'Configuración' },
