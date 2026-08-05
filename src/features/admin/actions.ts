@@ -660,6 +660,185 @@ export async function createComboAction(
   };
 }
 
+const updateComboSchema = comboSchema.omit({ slug: true }).extend({
+  comboId: z.string().uuid('Combo no válido'),
+});
+
+/**
+ * Edita nombre, precio, frase y aplicaciones de un combo existente.
+ *
+ * El identificador (`slug`) no se toca: es la URL pública del combo y la clave
+ * con la que se guardaron los pedidos ya hechos. Las aplicaciones se reemplazan
+ * por completo — borrar e insertar es más simple y correcto que diferenciar, y
+ * `streaming_combo_items` no tiene histórico que perder.
+ */
+export async function updateComboAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireAdmin();
+
+  const parsed = updateComboSchema.safeParse({
+    comboId: formData.get('comboId'),
+    name: formData.get('name'),
+    priceAmount: formData.get('priceAmount'),
+    tagline: formData.get('tagline'),
+    serviceIds: formData.getAll('serviceIds'),
+  });
+
+  if (!parsed.success) {
+    return { fieldErrors: toFieldErrors(parsed.error.issues) };
+  }
+
+  const serviceIds = [...new Set(parsed.data.serviceIds)];
+  const comboItems = serviceIds.map((serviceId) => ({
+    serviceId,
+    quantity: Number(formData.get(`serviceQuantity:${serviceId}`) ?? 1),
+  }));
+
+  if (
+    comboItems.some(
+      (item) => !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 10,
+    )
+  ) {
+    return {
+      fieldErrors: {
+        serviceIds: 'Cada cantidad debe estar entre 1 y 10 perfiles',
+      },
+    };
+  }
+
+  if (comboItems.reduce((total, item) => total + item.quantity, 0) < 2) {
+    return {
+      fieldErrors: {
+        serviceIds: 'Agrega al menos dos perfiles; pueden ser de la misma aplicación',
+      },
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  const { data: anterior } = await supabase
+    .from('streaming_combos')
+    .select('name, tagline, price_amount')
+    .eq('id', parsed.data.comboId)
+    .maybeSingle();
+
+  const { error: comboError } = await supabase
+    .from('streaming_combos')
+    .update({
+      name: parsed.data.name,
+      tagline: parsed.data.tagline,
+      price_amount: parsed.data.priceAmount,
+    })
+    .eq('id', parsed.data.comboId);
+
+  if (comboError) {
+    logger.error('No se pudo actualizar el combo', {
+      error: comboError.message,
+    });
+    return { error: 'No se pudieron guardar los cambios del combo' };
+  }
+
+  // Reemplazo completo de las aplicaciones incluidas.
+  const { error: borradoError } = await supabase
+    .from('streaming_combo_items')
+    .delete()
+    .eq('combo_id', parsed.data.comboId);
+
+  if (borradoError) {
+    logger.error('No se pudieron limpiar las aplicaciones del combo', {
+      error: borradoError.message,
+    });
+    return { error: 'No se pudieron guardar las aplicaciones del combo' };
+  }
+
+  const { error: itemsError } = await supabase.from('streaming_combo_items').insert(
+    comboItems.map((item) => ({
+      combo_id: parsed.data.comboId,
+      service_id: item.serviceId,
+      quantity: item.quantity,
+    })),
+  );
+
+  if (itemsError) {
+    logger.error('No se pudieron guardar las aplicaciones del combo', {
+      error: itemsError.message,
+    });
+    return { error: 'No se pudieron guardar las aplicaciones del combo' };
+  }
+
+  await supabase.from('audit_logs').insert({
+    actor_id: admin.id,
+    action: 'combo.updated',
+    entity_type: 'streaming_combo',
+    entity_id: parsed.data.comboId,
+    metadata: { previous: anterior },
+  });
+
+  revalidatePath('/admin/plataformas');
+  revalidatePath('/catalogo');
+  revalidatePath('/');
+
+  return { success: `«${parsed.data.name}» actualizado` };
+}
+
+/**
+ * Borra un combo definitivamente.
+ *
+ * Sólo es posible si ningún pedido lo referencia: `orders.combo_id` y
+ * `order_items.combo_id` son `on delete restrict`, así que Postgres protege el
+ * histórico de ventas. Cuando eso pasa se devuelve el motivo para que el
+ * operador use «Ocultar del catálogo», que es lo que realmente quiere.
+ */
+export async function deleteComboAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireAdmin();
+
+  const id = String(formData.get('comboId') ?? '');
+  if (!z.string().uuid().safeParse(id).success) {
+    return { error: 'Combo no válido' };
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  const { data: combo } = await supabase
+    .from('streaming_combos')
+    .select('name, slug')
+    .eq('id', id)
+    .maybeSingle();
+
+  // Los items caen solos por `on delete cascade`.
+  const { error } = await supabase.from('streaming_combos').delete().eq('id', id);
+
+  if (error) {
+    if (error.code === '23503') {
+      return {
+        error:
+          'Este combo ya tiene pedidos y no puede borrarse sin perder el histórico. Ocúltalo del catálogo.',
+      };
+    }
+    logger.error('No se pudo borrar el combo', { error: error.message });
+    return { error: 'No se pudo borrar el combo' };
+  }
+
+  await supabase.from('audit_logs').insert({
+    actor_id: admin.id,
+    action: 'combo.deleted',
+    entity_type: 'streaming_combo',
+    entity_id: id,
+    metadata: { name: combo?.name ?? null, slug: combo?.slug ?? null },
+  });
+
+  revalidatePath('/admin/plataformas');
+  revalidatePath('/catalogo');
+  revalidatePath('/');
+
+  return { success: `«${combo?.name ?? 'El combo'}» se eliminó del catálogo` };
+}
+
 /** Muestra u oculta un combo sin borrar sus pedidos históricos. */
 export async function toggleComboAction(formData: FormData): Promise<void> {
   await requireAdmin();
