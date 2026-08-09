@@ -22,6 +22,21 @@ const nextConfig: NextConfig = {
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
         ],
       },
+      {
+        /**
+         * El service worker nunca se cachea.
+         *
+         * Es la trampa clásica de las PWA: el archivo se sirve con la caché
+         * larga del resto de `public/`, el navegador se queda con la versión
+         * vieja durante horas y la actualización no llega nunca. El síntoma es
+         * «desplegué el arreglo y en el móvil sigue igual», sin ningún error.
+         */
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+          { key: 'Service-Worker-Allowed', value: '/' },
+        ],
+      },
     ];
   },
 };

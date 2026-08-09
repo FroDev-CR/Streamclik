@@ -4,6 +4,7 @@ import type { Metadata, Viewport } from 'next';
 import { Kanit } from 'next/font/google';
 import { Toaster } from 'sonner';
 
+import { PwaRegister } from '@/components/pwa-register';
 import { WhatsappButton } from '@/components/whatsapp-button';
 
 import { clerkAppearance } from '@/features/auth/clerk-appearance';
@@ -37,18 +38,57 @@ export const metadata: Metadata = {
   },
   description:
     'Elige tu plataforma, compra y recibe tu perfil automáticamente. Sin chats ni esperas.',
+  // `manifest` lo sirve `src/app/manifest.ts` por convención de fichero.
+  manifest: '/manifest.webmanifest',
+  applicationName: 'StreamClick',
   icons: {
     icon: [{ url: '/icon.svg', type: 'image/svg+xml' }],
     shortcut: '/icon.svg',
+    // iOS ignora los iconos del manifiesto: usa este y sólo este. Sin él, al
+    // añadir a la pantalla de inicio Safari guarda una captura de la página.
+    apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
   },
+  /**
+   * Modo aplicación en iOS.
+   *
+   * Safari no muestra ningún aviso de instalación —hay que ir a Compartir y
+   * «Añadir a pantalla de inicio»—, pero sí respeta estas etiquetas una vez
+   * añadida. Sin ellas se abre con la barra de Safari encima y no se distingue
+   * de un marcador.
+   *
+   * `statusBarStyle: 'default'` mantiene los iconos del sistema oscuros, que es
+   * lo legible sobre el crema de la interfaz; con `black-translucent` el
+   * contenido se mete debajo del reloj.
+   */
+  appleWebApp: {
+    capable: true,
+    title: 'StreamClick',
+    statusBarStyle: 'default',
+  },
+  /**
+   * La etiqueta antigua de iOS, a mano.
+   *
+   * Next 15 emite `mobile-web-app-capable`, que es el nombre estándar, pero iOS
+   * sólo lo respeta desde la 17.4. En un iPhone anterior la aplicación añadida a
+   * la pantalla de inicio se abriría con la barra de Safari encima —o sea, como
+   * un marcador— y no habría forma de saber por qué.
+   *
+   * Las dos pueden convivir: un navegador que entiende la nueva ignora esta.
+   */
+  other: {
+    'apple-mobile-web-app-capable': 'yes',
+  },
+  // iOS intenta convertir en enlaces cualquier cosa que parezca un teléfono. Los
+  // códigos de verificación de seis dígitos entran en esa categoría, y quedaban
+  // subrayados en azul con un menú de llamada al tocarlos.
+  formatDetection: { telephone: false },
   openGraph: {
     type: 'website',
     locale: 'es_CR',
     url: '/',
     siteName: 'StreamClick',
     title: 'StreamClick · Todo automático',
-    description:
-      'Netflix, Disney+, Max y Prime Video. Elige, paga y recibe automáticamente.',
+    description: 'Netflix, Disney+, Max y Prime Video. Elige, paga y recibe automáticamente.',
     images: [
       {
         url: '/og.png',
@@ -86,7 +126,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <ClerkProvider localization={esES} appearance={clerkAppearance}>
       <html lang="es" className={kanit.variable} suppressHydrationWarning>
-        <body className="min-h-dvh">{children}
+        <body className="min-h-dvh">
+          {children}
+          <PwaRegister />
           <WhatsappButton />
           <Toaster position="top-right" offset={20} />
         </body>

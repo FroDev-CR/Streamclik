@@ -40,8 +40,13 @@ export const config = {
    * autentica con firma HMAC. Si pasara por Clerk, el Worker de Cloudflare
    * recibiría una redirección al login en lugar de un 200, y **ningún código
    * llegaría jamás** — sin que ningún test de la aplicación lo detectara.
+   *
+   * `sw.js` y el manifiesto también quedan fuera. El navegador los pide sin
+   * cookies al comprobar si hay una versión nueva del service worker: si esa
+   * petición pasara por Clerk y volviera una redirección, la aplicación dejaría
+   * de ser instalable y de actualizarse, otra vez sin ningún error visible.
    */
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|api/webhooks|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/webhooks|sw\\.js|manifest\\.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };
