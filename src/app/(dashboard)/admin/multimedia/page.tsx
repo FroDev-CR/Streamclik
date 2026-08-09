@@ -30,10 +30,6 @@ export default async function MultimediaPage() {
         <h1 className="mt-3 font-[family-name:var(--font-display)] text-5xl font-black uppercase leading-[0.88] tracking-[-0.05em] sm:text-6xl">
           Multimedia
         </h1>
-        <p className="mt-4 max-w-lg text-sm leading-relaxed text-[var(--color-content-muted)]">
-          Tu respaldo de imágenes y vídeos de publicidad. Subilos acá y los tenés siempre a mano
-          para descargar, sin depender de Drive.
-        </p>
       </header>
 
       <MediaLibraryPanel
