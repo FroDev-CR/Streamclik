@@ -4,6 +4,7 @@ import { AlertTriangle, Mail, Phone, UserRound, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { requireAdmin } from '@/features/auth/session';
+import { DeleteClient } from '@/features/admin/components/delete-client';
 import { getAdminClients } from '@/features/admin/queries';
 import { AdminRewards } from '@/features/rewards/components/admin-rewards';
 import { formatDateTime } from '@/lib/utils';
@@ -141,6 +142,17 @@ export default async function ClientesPage() {
                 )}
 
                 <AdminRewards userId={cliente.id} rewards={cliente.rewards} />
+
+                {/* El borrado va al final y en tono discreto: es la acción menos
+                    frecuente de esta tarjeta y la única irreversible. */}
+                <div className="mt-4 flex justify-end border-t-2 border-[var(--color-border)] pt-3">
+                  <DeleteClient
+                    clientId={cliente.id}
+                    nombre={cliente.fullName ?? cliente.email}
+                    totalPedidos={cliente.totalPedidos}
+                    totalAsignaciones={cliente.totalAsignaciones}
+                  />
+                </div>
               </CardContent>
             </Card>
           ))}

@@ -333,11 +333,24 @@ export async function getAdminAccounts(): Promise<QueryResult<AdminAccountRow[]>
 
 export interface AdminClientRow {
   id: string;
+  /** Identidad en Clerk. `null` en perfiles antiguos previos a la migración. */
+  clerkUserId: string | null;
   email: string;
   fullName: string | null;
   phone: string | null;
   referralCode: string;
   createdAt: string;
+  /**
+   * Rastro que dejaría huérfano un borrado.
+   *
+   * Se cuentan **todos** los pedidos y **todas** las asignaciones, no sólo las
+   * vigentes: una asignación revocada sigue siendo el registro de que esa
+   * persona tuvo acceso a un perfil, y un pedido entregado hace tres meses sigue
+   * siendo la constancia de un cobro. Son justo lo que no debe desaparecer al
+   * limpiar una cuenta de prueba.
+   */
+  totalPedidos: number;
+  totalAsignaciones: number;
   suscripciones: Array<{
     assignmentId: string;
     serviceName: string;
@@ -377,7 +390,8 @@ export async function getAdminClients(): Promise<QueryResult<AdminClientRow[]>> 
     .from('user_profiles')
     .select(
       `
-      id, email, full_name, phone, referral_code, created_at,
+      id, clerk_user_id, email, full_name, phone, referral_code, created_at,
+      orders!orders_user_id_fkey ( id ),
       profile_assignments!profile_assignments_user_id_fkey (
         id, status, expires_at,
         account_profiles (
@@ -404,11 +418,13 @@ export async function getAdminClients(): Promise<QueryResult<AdminClientRow[]>> 
 
   type Fila = {
     id: string;
+    clerk_user_id: string | null;
     email: string;
     full_name: string | null;
     phone: string | null;
     referral_code: string;
     created_at: string;
+    orders: Array<{ id: string }>;
     profile_assignments: Array<{
       id: string;
       status: AssignmentStatus;
@@ -435,11 +451,14 @@ export async function getAdminClients(): Promise<QueryResult<AdminClientRow[]>> 
   return {
     data: ((data ?? []) as unknown as Fila[]).map((fila) => ({
       id: fila.id,
+      clerkUserId: fila.clerk_user_id,
       email: fila.email,
       fullName: fila.full_name,
       phone: fila.phone,
       referralCode: fila.referral_code,
       createdAt: fila.created_at,
+      totalPedidos: fila.orders?.length ?? 0,
+      totalAsignaciones: fila.profile_assignments?.length ?? 0,
       suscripciones: fila.profile_assignments
         // Sólo lo vigente: el historial de asignaciones revocadas es útil para
         // auditar, pero aquí la pregunta es qué tiene contratado ahora.

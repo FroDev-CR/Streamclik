@@ -1,5 +1,6 @@
 'use server';
 
+import { clerkClient } from '@clerk/nextjs/server';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
@@ -434,6 +435,130 @@ export async function deleteAccountAction(
   revalidatePath('/dashboard');
 
   return { success: `Cuenta "${cuenta?.label ?? accountId}" eliminada` };
+}
+
+// -----------------------------------------------------------------------------
+
+/**
+ * Borrar un cliente de prueba.
+ *
+ * Existe para limpiar los registros que uno mismo crea probando, no para dar de
+ * baja a nadie: **se niega en cuanto el cliente tiene un pedido o una
+ * asignación**. Ese rastro es el historial de ventas y el registro de quién tuvo
+ * acceso a qué, y las claves foráneas lo borrarían en cascada sin preguntar.
+ * Como el borrado no se puede deshacer, la comprobación va aquí y no sólo en la
+ * interfaz: una Server Action es un endpoint POST público.
+ *
+ * El orden importa. Primero Clerk y después Supabase:
+ *
+ *   · Si se borrara Supabase primero y Clerk fallara, esa persona entraría de
+ *     nuevo con su correo de siempre y `sync_current_user` le crearía un perfil
+ *     limpio. El cliente "borrado" reaparecería en la lista sin que nadie
+ *     entendiera por qué.
+ *   · Al revés, si Clerk sale bien y Supabase falla, queda una fila sin
+ *     identidad: nadie puede entrar con ella y el operador puede reintentar. Por
+ *     eso el 404 de Clerk no se trata como error — en el segundo intento la
+ *     identidad ya no existe y lo que falta es justamente borrar la fila.
+ */
+export async function deleteClientAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireAdmin();
+
+  const clientId = String(formData.get('clientId') ?? '');
+  if (!z.string().uuid().safeParse(clientId).success) {
+    return { error: 'Cliente no válido' };
+  }
+
+  // Borrarse a uno mismo dejaría el panel sin operador y la sesión en un limbo.
+  if (clientId === admin.id) {
+    return { error: 'No puedes borrar tu propia cuenta desde aquí.' };
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  const { data: cliente, error: readError } = await supabase
+    .from('user_profiles')
+    .select('id, email, full_name, role, clerk_user_id')
+    .eq('id', clientId)
+    .maybeSingle();
+
+  if (readError || !cliente) {
+    return { error: 'Ese cliente ya no existe.' };
+  }
+
+  // La pantalla sólo lista clientes, pero nada impide llamar a esta acción con
+  // el identificador de otro administrador.
+  if (cliente.role !== 'client') {
+    return { error: 'Sólo se pueden borrar cuentas de cliente.' };
+  }
+
+  const [{ count: pedidos }, { count: asignaciones }] = await Promise.all([
+    supabase.from('orders').select('id', { count: 'exact', head: true }).eq('user_id', clientId),
+    supabase
+      .from('profile_assignments')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', clientId),
+  ]);
+
+  if ((pedidos ?? 0) > 0 || (asignaciones ?? 0) > 0) {
+    return {
+      error:
+        'Este cliente tiene historial y borrarlo se llevaría por delante sus pedidos y el registro de los perfiles que tuvo. Libérale los perfiles desde el banco si ya no es cliente.',
+    };
+  }
+
+  if (cliente.clerk_user_id) {
+    try {
+      const clerk = await clerkClient();
+      await clerk.users.deleteUser(cliente.clerk_user_id);
+    } catch (error) {
+      // 404 = ya no estaba en Clerk. Es el reintento tras un borrado a medias, y
+      // lo que falta por hacer es justo lo que viene después.
+      const status = (error as { status?: number })?.status;
+
+      if (status !== 404) {
+        logger.error('No se pudo borrar la identidad en Clerk', {
+          clientId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return {
+          error:
+            'No se pudo borrar la cuenta en Clerk, así que no se ha tocado nada. Inténtalo de nuevo.',
+        };
+      }
+    }
+  }
+
+  const { error } = await supabase.from('user_profiles').delete().eq('id', clientId);
+
+  if (error) {
+    logger.error('Se borró la identidad en Clerk pero no el perfil', {
+      clientId,
+      error: error.message,
+    });
+    return {
+      error:
+        'La cuenta se borró en Clerk pero el perfil sigue en la lista. Vuelve a pulsar borrar para terminar.',
+    };
+  }
+
+  // El registro sobrevive al borrado con `actor_id` intacto: quién limpió qué
+  // cuenta es exactamente el dato que hará falta si alguien pregunta después.
+  await supabase.from('audit_logs').insert({
+    actor_id: admin.id,
+    action: 'client.deleted',
+    entity_type: 'user_profile',
+    entity_id: clientId,
+    metadata: { email: cliente.email, full_name: cliente.full_name },
+  });
+
+  logger.info('Cliente borrado', { clientId, actor: admin.id });
+
+  revalidatePath('/admin/clientes');
+
+  return { success: `«${cliente.full_name ?? cliente.email}» eliminado` };
 }
 
 // -----------------------------------------------------------------------------
