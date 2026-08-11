@@ -3,6 +3,7 @@ import Link from 'next/link';
 import {
   Boxes,
   Inbox,
+  KeyRound,
   LayoutGrid,
   LogOut,
   Settings,
@@ -18,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { WelcomeToast } from '@/features/auth/components/welcome-toast';
 import { requireUser } from '@/features/auth/session';
 import { countPendingOrders } from '@/features/orders/queries';
+import { countPendingPinChangeRequests } from '@/features/pins/queries';
 
 /**
  * Todas las rutas bajo este layout dependen de la cookie de sesión, así que
@@ -51,6 +53,7 @@ const NAV_ADMIN = [
   { href: '/admin', icono: Boxes, etiqueta: 'Banco' },
   { href: '/admin/buzon', icono: Inbox, etiqueta: 'Buzón' },
   { href: '/admin/pagos', icono: Wallet, etiqueta: 'Pagos' },
+  { href: '/admin/pines', icono: KeyRound, etiqueta: 'Cambios de PIN' },
   { href: '/admin/clientes', icono: Users, etiqueta: 'Clientes' },
   { href: '/admin/plataformas', icono: Settings, etiqueta: 'Configuración' },
 ] as const;
@@ -71,15 +74,17 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const inicio = isAdmin ? '/admin' : '/dashboard';
 
   /**
-   * El aviso de pagos por revisar.
+   * Los avisos de pagos y cambios de PIN por revisar.
    *
-   * Es la «notificación» del flujo de cobro, y va en la navegación en lugar de
-   * en un canal externo: el operador atiende los pagos desde este mismo panel,
-   * así que un número junto a «Pagos» le llega antes que un correo. Sólo se
-   * consulta para administradores; un cliente pagaría una consulta que además
+   * Son las «notificaciones» de esos dos flujos, y van en la navegación en lugar
+   * de en un canal externo: el operador los atiende desde este mismo panel, así
+   * que un número junto al enlace le llega antes que un correo. Sólo se
+   * consultan para administradores; un cliente pagaría una consulta que además
    * RLS le devolvería vacía.
    */
-  const pagosPendientes = isAdmin ? await countPendingOrders() : 0;
+  const [pagosPendientes, pinesPendientes] = isAdmin
+    ? await Promise.all([countPendingOrders(), countPendingPinChangeRequests()])
+    : [0, 0];
 
   return (
     <div className="flex min-h-dvh flex-col bg-[var(--color-canvas)]">
@@ -98,7 +103,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
               la URL a mano. */}
           <nav className="flex items-center gap-1">
             {enlaces.map(({ href, icono: Icono, etiqueta }) => {
-              const avisos = href === '/admin/pagos' ? pagosPendientes : 0;
+              const avisos =
+                href === '/admin/pagos'
+                  ? pagosPendientes
+                  : href === '/admin/pines'
+                    ? pinesPendientes
+                    : 0;
 
               return (
                 <Link key={href} href={href} className="relative">
@@ -113,7 +123,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                   {avisos > 0 && (
                     <span className="pointer-events-none absolute -right-0.5 -top-0.5 flex min-w-[18px] items-center justify-center rounded-full border-2 border-[var(--color-border)] bg-[var(--color-danger)] px-1 font-[family-name:var(--font-display)] text-[0.6rem] font-black leading-[14px] text-white">
                       {avisos > 9 ? '9+' : avisos}
-                      <span className="sr-only"> pagos por revisar</span>
+                      <span className="sr-only"> {etiqueta.toLowerCase()} por revisar</span>
                     </span>
                   )}
                 </Link>

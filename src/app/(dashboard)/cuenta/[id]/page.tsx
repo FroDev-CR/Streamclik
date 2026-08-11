@@ -8,8 +8,9 @@ import { CredentialsPanel } from '@/features/accounts/components/credentials-pan
 import { getAccountForUser } from '@/features/accounts/queries';
 import { requireUser } from '@/features/auth/session';
 import { LivePinCard } from '@/features/pins/components/live-pin-card';
+import { PinChangeRequest } from '@/features/pins/components/pin-change-request';
 import { PinHistory } from '@/features/pins/components/pin-history';
-import { getLivePins, getPinHistory } from '@/features/pins/queries';
+import { getLatestPinChangeRequest, getLivePins, getPinHistory } from '@/features/pins/queries';
 
 export const metadata: Metadata = { title: 'Detalle de la cuenta' };
 
@@ -34,9 +35,13 @@ export default async function AccountDetailPage({
   const account = await getAccountForUser(user.id, id);
   if (!account) notFound();
 
-  // Las dos consultas son independientes: se lanzan en paralelo para no sumar
+  // Las tres consultas son independientes: se lanzan en paralelo para no sumar
   // sus latencias en el tiempo hasta el primer byte.
-  const [livePins, history] = await Promise.all([getLivePins(id), getPinHistory(id)]);
+  const [livePins, history, pinChangeRequest] = await Promise.all([
+    getLivePins(id),
+    getPinHistory(id),
+    getLatestPinChangeRequest(account.accountProfileId),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -63,6 +68,12 @@ export default async function AccountDetailPage({
         loginPassword={account.loginPassword}
         profileLabel={account.profileLabel}
         profilePin={account.profilePin}
+      />
+
+      <PinChangeRequest
+        accountId={account.accountId}
+        accountProfileId={account.accountProfileId}
+        latestRequest={pinChangeRequest}
       />
 
       <PinHistory pins={history} />

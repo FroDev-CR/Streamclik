@@ -25,6 +25,7 @@ export interface AssignedAccount {
   loginEmail: string;
   /** Descifrada. `null` si el descifrado falla (clave rotada, dato corrupto). */
   loginPassword: string | null;
+  accountProfileId: string;
   profileLabel: string;
   profilePin: string | null;
   assignmentId: string;
@@ -57,6 +58,7 @@ export async function getMyAccounts(userId: string): Promise<AssignedAccount[]> 
     // El descifrado ocurre en el servidor. Nunca se envía la credencial cifrada
     // al navegador: no aportaría nada y ampliaría la superficie de exposición.
     loginPassword: tryDecrypt(row.login_password_enc),
+    accountProfileId: row.account_profile_id,
     profileLabel: row.profile_label,
     profilePin: row.profile_pin,
     assignmentId: row.assignment_id,

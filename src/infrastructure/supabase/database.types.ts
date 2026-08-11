@@ -30,6 +30,7 @@ export type OrderStatusDb =
   'esperando_comprobante' | 'esperando_revision' | 'entregado' | 'rechazado' | 'cancelado';
 export type RewardSourceDb = 'referral' | 'admin';
 export type RewardStatusDb = 'available' | 'claimed' | 'cancelled';
+export type PinChangeStatusDb = 'pending' | 'done' | 'rejected';
 
 /** Tablas sin columnas modificables por la API (sólo las escribe el webhook). */
 type NoUpdates = Record<string, never>;
@@ -702,6 +703,58 @@ export interface Database {
             columns: ['claimed_assignment_id'];
             isOneToOne: true;
             referencedRelation: 'profile_assignments';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+
+      pin_change_requests: {
+        Row: {
+          id: string;
+          account_profile_id: string;
+          requested_by: string;
+          requested_pin: string;
+          status: PinChangeStatusDb;
+          note: string | null;
+          created_at: string;
+          resolved_at: string | null;
+          resolved_by: string | null;
+        };
+        Insert: {
+          account_profile_id: string;
+          requested_by: string;
+          requested_pin: string;
+          note?: string | null;
+        };
+        // `status` es lo único que cambia desde la aplicación: el trigger
+        // `aplicar_cambio_pin()` rellena `resolved_at`/`resolved_by` solo al
+        // marcar 'done'. El rechazo los fija a mano (ver rechazarCambioPinAction).
+        Update: {
+          status?: PinChangeStatusDb;
+          note?: string | null;
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'pin_change_requests_account_profile_id_fkey';
+            columns: ['account_profile_id'];
+            isOneToOne: false;
+            referencedRelation: 'account_profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'pin_change_requests_requested_by_fkey';
+            columns: ['requested_by'];
+            isOneToOne: false;
+            referencedRelation: 'user_profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'pin_change_requests_resolved_by_fkey';
+            columns: ['resolved_by'];
+            isOneToOne: false;
+            referencedRelation: 'user_profiles';
             referencedColumns: ['id'];
           },
         ];
