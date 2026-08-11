@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 
 import type { UserProfile } from '@/core/domain/entities';
 import { createSupabaseServerClient } from '@/infrastructure/supabase/server';
+import { logger } from '@/lib/logger';
 
 /**
  * Guardias de sesión para Server Components y Server Actions.
@@ -52,7 +53,15 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
 
   if (!profile) {
     const clerkUser = await currentUser();
-    const email = clerkUser?.primaryEmailAddress?.emailAddress ?? null;
+
+    // El correo primario puede no estar asignado todavía en el instante
+    // siguiente al alta, así que se cae a la primera dirección de la lista antes
+    // de rendirse. `sync_current_user` aborta con 22004 si no recibe ninguno, y
+    // el usuario se quedaría sin perfil por una carrera de milisegundos.
+    const email =
+      clerkUser?.primaryEmailAddress?.emailAddress ??
+      clerkUser?.emailAddresses?.[0]?.emailAddress ??
+      null;
     const fullName =
       [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(' ').trim() || null;
 
@@ -61,7 +70,18 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
       p_full_name: fullName,
     });
 
-    if (error) return null;
+    // Antes se devolvía `null` en silencio. El síntoma resultante no era un
+    // error sino un bucle de redirección (ver `requireUser`), y sin esta traza
+    // no había forma de saber si la causa fue el correo ausente, el claim
+    // `role` que falta en el JWT o un fallo de red.
+    if (error) {
+      logger.error('No se pudo sincronizar el perfil del usuario de Clerk', {
+        clerkUserId: userId,
+        error: error.message,
+        code: error.code,
+      });
+      return null;
+    }
 
     const { data: creado } = await supabase
       .from('user_profiles')
@@ -72,7 +92,12 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
     profile = creado;
   }
 
-  if (!profile) return null;
+  if (!profile) {
+    logger.error('Hay sesión de Clerk pero no se pudo resolver el perfil', {
+      clerkUserId: userId,
+    });
+    return null;
+  }
 
   return {
     id: profile.id,
@@ -91,16 +116,45 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
   };
 }
 
-/** Exige sesión; si no la hay, redirige al login conservando el destino. */
+/**
+ * Exige sesión; si no la hay, redirige al login conservando el destino.
+ *
+ * ⚠️ Hay **dos** motivos por los que `getCurrentUser()` devuelve `null` y no
+ * pueden tratarse igual:
+ *
+ *  1. No hay sesión de Clerk. Redirigir al login es lo correcto.
+ *  2. Sí hay sesión de Clerk, pero no se pudo resolver el perfil de
+ *     `user_profiles`. Aquí redirigir al login es **el peor error posible**:
+ *     `<SignIn>` ve una sesión activa, reenvía al destino privado, éste vuelve a
+ *     no encontrar perfil y rebota otra vez al login. El resultado es un bucle
+ *     infinito que en el navegador se ve como una página parpadeando sin avanzar
+ *     y sin ningún mensaje. Costó una sesión de depuración: el síntoma («la
+ *     página parpadea») no apunta en absoluto a su causa (el alta del perfil).
+ *
+ * Por eso el segundo caso lanza. Un error visible con su traza en el log es
+ * infinitamente preferible a un parpadeo mudo, y `logger.error` en
+ * `getCurrentUser()` deja escrito cuál de las causas fue.
+ *
+ * El parámetro se llama `redirect_url` porque es el que leen `/login` y
+ * `/registro`. Antes se enviaba como `next`, que ninguna de las dos páginas mira:
+ * el destino se perdía siempre y todo el mundo acababa en `/dashboard`.
+ */
 export async function requireUser(nextPath?: string): Promise<SessionUser> {
   const user = await getCurrentUser();
+  if (user) return user;
 
-  if (!user) {
-    const target = nextPath ? `/login?next=${encodeURIComponent(nextPath)}` : '/login';
+  const { userId } = await auth();
+
+  if (!userId) {
+    const target = nextPath ? `/login?redirect_url=${encodeURIComponent(nextPath)}` : '/login';
     redirect(target);
   }
 
-  return user;
+  throw new Error(
+    'Hay sesión de Clerk pero no se pudo crear o leer el perfil en Supabase. ' +
+      'Revisa que la integración de Clerk con Supabase esté activa (el JWT debe ' +
+      'llevar el claim role: "authenticated") y consulta el log del servidor.',
+  );
 }
 
 /**
