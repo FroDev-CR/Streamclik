@@ -39,6 +39,8 @@ export interface AdminClientOption {
 export interface AdminProfileRow {
   profileId: string;
   profileLabel: string;
+  /** El PIN que el cliente ve en su panel. `null` mientras nadie lo haya puesto. */
+  profilePin: string | null;
   slotIndex: number;
   assignment: {
     id: string;
@@ -242,7 +244,7 @@ export async function getAdminAccounts(): Promise<QueryResult<AdminAccountRow[]>
       id, service_id, label, inbox_email, login_email, login_password_enc, status, max_profiles,
       streaming_services ( name, brand_color ),
       account_profiles (
-        id, label, slot_index,
+        id, label, profile_pin, slot_index,
         profile_assignments (
           id, user_id, status, expires_at,
           user_profiles!profile_assignments_user_id_fkey ( email )
@@ -275,6 +277,7 @@ export async function getAdminAccounts(): Promise<QueryResult<AdminAccountRow[]>
     account_profiles: Array<{
       id: string;
       label: string;
+      profile_pin: string | null;
       slot_index: number;
       profile_assignments: Array<{
         id: string;
@@ -308,6 +311,7 @@ export async function getAdminAccounts(): Promise<QueryResult<AdminAccountRow[]>
           return {
             profileId: profile.id,
             profileLabel: profile.label,
+            profilePin: profile.profile_pin,
             slotIndex: profile.slot_index,
             assignment: active
               ? {

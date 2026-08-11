@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useActionState, useEffect, useRef } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { ArrowRight, AtSign, KeyRound, Plus, Users } from 'lucide-react';
 
@@ -45,6 +45,21 @@ function Paso({ n, titulo, icono: Icono }: { n: number; titulo: string; icono: t
   );
 }
 
+const PERFILES_POR_DEFECTO = 5;
+
+/**
+ * Acota el número de perfiles al rango que acepta el esquema.
+ *
+ * El `<input type="number">` deja escribir cualquier cosa —incluido vacío o un
+ * 40— y esa cifra decide cuántas filas de nombre y PIN se pintan. Sin acotarla,
+ * teclear un cero de más intenta renderizar cuarenta pares de campos.
+ */
+function clampPerfiles(valor: string): number {
+  const numero = Number.parseInt(valor, 10);
+  if (Number.isNaN(numero)) return 1;
+  return Math.min(10, Math.max(1, numero));
+}
+
 /**
  * Alta de una cuenta de streaming en el inventario del operador.
  *
@@ -56,12 +71,18 @@ function Paso({ n, titulo, icono: Icono }: { n: number; titulo: string; icono: t
 export function CreateAccountForm({ services }: { services: AdminServiceOption[] }) {
   const [state, formAction] = useActionState<ActionState, FormData>(createAccountAction, {});
   const formRef = useRef<HTMLFormElement>(null);
+  const [numeroPerfiles, setNumeroPerfiles] = useState(PERFILES_POR_DEFECTO);
 
   // Limpiar tras el alta evita el error más probable del panel: crear la
   // siguiente cuenta con los datos de la anterior todavía en pantalla y acabar
   // con dos cuentas casi idénticas.
   useEffect(() => {
-    if (state.success) formRef.current?.reset();
+    if (state.success) {
+      formRef.current?.reset();
+      // `reset()` no alcanza a un campo controlado: sin esto, el contador se
+      // quedaría en el número de la cuenta anterior.
+      setNumeroPerfiles(PERFILES_POR_DEFECTO);
+    }
   }, [state.success]);
 
   const sinServicios = services.length === 0;
@@ -180,11 +201,54 @@ export function CreateAccountForm({ services }: { services: AdminServiceOption[]
                   type="number"
                   min={1}
                   max={10}
-                  defaultValue={5}
+                  value={numeroPerfiles}
+                  onChange={(evento) => setNumeroPerfiles(clampPerfiles(evento.target.value))}
                   error={state.fieldErrors?.maxProfiles}
                   hint="Se crean los slots vendibles de una vez. Netflix estándar: 5."
                   required
                 />
+              </div>
+
+              {/* Nombre y PIN por perfil.
+                  Se piden aquí porque el operador acaba de leerlos en la
+                  plataforma al crear los perfiles, que es el único momento en
+                  que los tiene delante. Ambos son opcionales: si todavía no los
+                  sabe, el perfil nace como «Perfil N» sin PIN y se completa
+                  después desde el banco. */}
+              <div className="flex flex-col gap-2">
+                <Label>Nombre y PIN de cada perfil (opcional)</Label>
+
+                <ul className="flex flex-col gap-2">
+                  {Array.from({ length: numeroPerfiles }, (_, indice) => (
+                    <li key={indice} className="flex items-center gap-2">
+                      <span className="grid size-7 shrink-0 place-items-center rounded-lg border-2 border-[var(--color-border)] bg-[var(--color-canvas)] font-[family-name:var(--font-display)] text-xs font-black">
+                        {indice + 1}
+                      </span>
+
+                      <Input
+                        name={`profileLabel:${indice}`}
+                        placeholder={`Perfil ${indice + 1}`}
+                        maxLength={60}
+                        aria-label={`Nombre del perfil ${indice + 1}`}
+                        className="h-10 flex-1 text-xs"
+                      />
+
+                      <Input
+                        name={`profilePin:${indice}`}
+                        placeholder="PIN"
+                        inputMode="numeric"
+                        maxLength={4}
+                        aria-label={`PIN del perfil ${indice + 1}`}
+                        className="h-10 w-20 text-center font-mono text-xs tracking-[0.25em]"
+                      />
+                    </li>
+                  ))}
+                </ul>
+
+                <p className="text-xs leading-snug text-[var(--color-content-muted)]">
+                  El cliente ve ambos datos en su panel. Puedes dejarlos vacíos y
+                  rellenarlos más tarde desde el banco.
+                </p>
               </div>
             </div>
 

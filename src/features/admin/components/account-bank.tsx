@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useMemo, useState } from 'react';
+import { useActionState, useCallback, useEffect, useMemo, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import {
   Check,
@@ -29,6 +29,7 @@ import {
   deleteAccountAction,
   revokeAssignmentAction,
   updateAccountAction,
+  updateProfileAction,
 } from '../actions';
 import type {
   AdminAccountRow,
@@ -106,6 +107,81 @@ function AssignForm({
   );
 }
 
+/**
+ * Nombre y PIN del perfil, editables en el sitio.
+ *
+ * Van juntos porque es un solo gesto: el operador entra a la plataforma, lee
+ * «Perfil 2 · 4821» y lo copia aquí para que el cliente lo vea en su panel. Se
+ * edita desde el slot y no desde el modal de la cuenta porque es aquí donde se
+ * ve de un vistazo qué perfil está libre y cuál ocupado.
+ */
+/** Botón aparte: `useFormStatus` sólo informa dentro de un hijo del `<form>`. */
+function GuardarPerfilButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button type="submit" size="sm" disabled={pending}>
+      <Save aria-hidden className="size-3.5" strokeWidth={2.5} />
+      {pending ? 'Guardando…' : 'Guardar'}
+    </Button>
+  );
+}
+
+function ProfileIdentityForm({
+  profile,
+  onDone,
+}: {
+  profile: AdminProfileRow;
+  onDone: () => void;
+}) {
+  const [state, formAction] = useActionState<ActionState, FormData>(updateProfileAction, {});
+
+  // Cerrar al guardar. En un efecto y no durante el render: cambiar el estado
+  // del padre mientras se pinta el hijo es exactamente lo que React prohíbe.
+  useEffect(() => {
+    if (state.success) onDone();
+  }, [state.success, onDone]);
+
+  return (
+    <form action={formAction} className="flex flex-col gap-2">
+      <input type="hidden" name="profileId" value={profile.profileId} />
+
+      <Input
+        name="label"
+        defaultValue={profile.profileLabel}
+        placeholder="Nombre del perfil"
+        maxLength={60}
+        aria-label="Nombre del perfil"
+        className="h-9 text-xs"
+        error={state.fieldErrors?.label}
+        required
+      />
+
+      <Input
+        name="profilePin"
+        defaultValue={profile.profilePin ?? ''}
+        placeholder="PIN (4 dígitos, opcional)"
+        inputMode="numeric"
+        maxLength={4}
+        aria-label="PIN del perfil"
+        className="h-9 text-center font-mono text-xs tracking-[0.3em]"
+        error={state.fieldErrors?.profilePin}
+      />
+
+      {state.error && (
+        <span className="text-xs font-semibold text-[var(--color-danger)]">{state.error}</span>
+      )}
+
+      <div className="flex gap-2">
+        <GuardarPerfilButton />
+        <Button type="button" size="sm" variant="ghost" onClick={onDone}>
+          Cancelar
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 function ProfileSlot({
   profile,
   clients,
@@ -118,6 +194,11 @@ function ProfileSlot({
   formAction: (formData: FormData) => void;
 }) {
   const asignado = profile.assignment !== null;
+  const [editando, setEditando] = useState(false);
+
+  // Estable entre renders: si fuese una flecha en línea, el efecto que cierra el
+  // formulario la vería cambiar en cada pintado y se dispararía en bucle.
+  const cerrarEdicion = useCallback(() => setEditando(false), []);
 
   return (
     <li
@@ -129,12 +210,36 @@ function ProfileSlot({
             'border-dashed border-[var(--color-content-subtle)] bg-transparent',
       )}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-[family-name:var(--font-display)] text-sm font-extrabold uppercase">
-          {profile.profileLabel}
-        </span>
-        <Badge tone={asignado ? 'success' : 'neutral'}>{asignado ? 'Ocupado' : 'Libre'}</Badge>
-      </div>
+      {editando ? (
+        <ProfileIdentityForm profile={profile} onDone={cerrarEdicion} />
+      ) : (
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex min-w-0 flex-col">
+            <span className="truncate font-[family-name:var(--font-display)] text-sm font-extrabold uppercase">
+              {profile.profileLabel}
+            </span>
+            {/* El PIN se muestra en claro: es el dato que el operador viene a
+                comprobar, y ocultarlo obligaría a un clic para leer cuatro
+                cifras que el cliente ya tiene en su panel. */}
+            <span className="font-mono text-xs text-[var(--color-content-muted)]">
+              {profile.profilePin ? `PIN ${profile.profilePin}` : 'Sin PIN'}
+            </span>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1">
+            <Badge tone={asignado ? 'success' : 'neutral'}>{asignado ? 'Ocupado' : 'Libre'}</Badge>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setEditando(true)}
+              aria-label={`Editar el nombre y el PIN de ${profile.profileLabel}`}
+            >
+              <Pencil aria-hidden className="size-3.5" strokeWidth={2.5} />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {profile.assignment ? (
         <div className="flex flex-col gap-2">

@@ -118,11 +118,24 @@ export async function createAccountAction(
   // Se crean los slots de perfil por adelantado. Son el inventario vendible: sin
   // ellos, el administrador tendría que crearlos uno a uno antes de poder asignar
   // nada, y ese paso extra se olvida.
-  const profiles = Array.from({ length: parsed.data.maxProfiles }, (_, index) => ({
-    account_id: account.id,
-    label: `Perfil ${index + 1}`,
-    slot_index: index + 1,
-  }));
+  //
+  // El nombre y el PIN de cada perfil llegan del formulario cuando el operador
+  // los sabe ya —que es lo habitual: los acaba de leer en la plataforma— y caen
+  // a «Perfil N» sin PIN cuando no. Ambos se pueden corregir después desde el
+  // banco, así que no bloquean el alta.
+  const profiles = Array.from({ length: parsed.data.maxProfiles }, (_, index) => {
+    const label = String(formData.get(`profileLabel:${index}`) ?? '').trim();
+    const pin = String(formData.get(`profilePin:${index}`) ?? '').trim();
+
+    return {
+      account_id: account.id,
+      label: label.slice(0, 60) || `Perfil ${index + 1}`,
+      // Sólo se acepta el formato exacto; cualquier otra cosa se guarda como
+      // «sin PIN» en lugar de escribir basura que el cliente intentaría teclear.
+      profile_pin: /^[0-9]{4}$/.test(pin) ? pin : null,
+      slot_index: index + 1,
+    };
+  });
 
   const { error: profilesError } = await supabase.from('account_profiles').insert(profiles);
 
@@ -268,6 +281,73 @@ export async function assignProfileAction(
   revalidatePath('/admin');
   revalidatePath('/dashboard');
   return { success: 'Perfil asignado correctamente' };
+}
+
+// -----------------------------------------------------------------------------
+
+const updateProfileSchema = z.object({
+  profileId: z.string().uuid('Perfil no válido'),
+  label: z.string().trim().min(1, 'El perfil necesita un nombre').max(60, 'Máximo 60 caracteres'),
+  // Vacío significa «sin PIN», que es un estado legítimo: un perfil recién
+  // creado no tiene ninguno y el operador debe poder quitarlo igual que ponerlo.
+  profilePin: z
+    .string()
+    .trim()
+    .refine((value) => value === '' || /^[0-9]{4}$/.test(value), 'El PIN debe tener 4 dígitos')
+    .transform((value) => (value === '' ? null : value)),
+});
+
+/**
+ * Cambiar el nombre y el PIN de un perfil.
+ *
+ * Los dos datos van juntos porque es el mismo gesto: el operador entra a la
+ * plataforma, ve «Perfil 2 · 4821» y lo deja escrito aquí para que el cliente lo
+ * encuentre en su panel. Separarlos en dos formularios obligaría a guardar dos
+ * veces lo que se mira una sola vez.
+ *
+ * El PIN se guarda en claro a propósito, igual que ya estaba en el esquema: el
+ * cliente necesita el valor original para teclearlo en el televisor, así que no
+ * puede hashearse. No es una credencial de acceso a la cuenta —esa sí se cifra—,
+ * sino el código de un perfil dentro de una cuenta que el cliente ya tiene.
+ */
+export async function updateProfileAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireAdmin();
+
+  const parsed = updateProfileSchema.safeParse({
+    profileId: formData.get('profileId'),
+    label: formData.get('label'),
+    profilePin: String(formData.get('profilePin') ?? ''),
+  });
+
+  if (!parsed.success) {
+    return { fieldErrors: toFieldErrors(parsed.error.issues) };
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  const { error } = await supabase
+    .from('account_profiles')
+    .update({ label: parsed.data.label, profile_pin: parsed.data.profilePin })
+    .eq('id', parsed.data.profileId);
+
+  if (error) {
+    logger.error('No se pudo actualizar el perfil', {
+      profileId: parsed.data.profileId,
+      error: error.message,
+    });
+    return { error: 'No se pudo guardar el perfil' };
+  }
+
+  revalidatePath('/admin');
+  // El cliente ve el nombre y el PIN en su panel y en el detalle de la cuenta:
+  // sin revalidarlos seguiría leyendo el valor viejo hasta su siguiente visita.
+  revalidatePath('/dashboard');
+  revalidatePath('/cuenta', 'layout');
+
+  return { success: `«${parsed.data.label}» actualizado` };
 }
 
 // -----------------------------------------------------------------------------
