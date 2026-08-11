@@ -64,6 +64,25 @@ describe('matcher del middleware', () => {
     expect(middlewareSeAplicaA('/cuenta/abc-123')).toBe(true);
   });
 
+  it('NO intercepta el service worker ni el manifiesto', () => {
+    // El navegador los pide sin cookies al comprobar si hay versión nueva del
+    // service worker. Si Clerk respondiera con una redirección al login, la
+    // aplicación dejaría de ser instalable y de actualizarse, y no habría
+    // ningún error que lo delatara.
+    expect(middlewareSeAplicaA('/sw.js')).toBe(false);
+    expect(middlewareSeAplicaA('/manifest.webmanifest')).toBe(false);
+  });
+
+  it('la página de respaldo sin conexión es pública', () => {
+    // El service worker la precarga al instalarse. Si exigiera sesión, lo que
+    // quedaría cacheado sería una redirección al login, y el usuario sin datos
+    // vería eso en lugar de la explicación.
+    const bloque = FUENTE.match(/createRouteMatcher\(\[([\s\S]*?)\]\)/);
+    const privadas = [...bloque![1]!.matchAll(/'([^']+)'/g)].map((m) => m[1]!);
+
+    expect(privadas.some((patron) => new RegExp(`^${patron}$`).test('/sin-conexion'))).toBe(false);
+  });
+
   it('exige sesión en todo el flujo de compra', () => {
     // `/comprar` y `/historial` deben estar en `createRouteMatcher`, no sólo en
     // el matcher del config. Es lo que hace que un visitante sin sesión pase por

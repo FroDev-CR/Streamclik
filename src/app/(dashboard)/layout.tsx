@@ -2,6 +2,7 @@ import { SignOutButton } from '@clerk/nextjs';
 import Link from 'next/link';
 import {
   Boxes,
+  Images,
   Inbox,
   KeyRound,
   LayoutGrid,
@@ -55,6 +56,7 @@ const NAV_ADMIN = [
   { href: '/admin/pagos', icono: Wallet, etiqueta: 'Pagos' },
   { href: '/admin/pines', icono: KeyRound, etiqueta: 'Cambios de PIN' },
   { href: '/admin/clientes', icono: Users, etiqueta: 'Clientes' },
+  { href: '/admin/multimedia', icono: Images, etiqueta: 'Multimedia' },
   { href: '/admin/plataformas', icono: Settings, etiqueta: 'Configuración' },
 ] as const;
 
