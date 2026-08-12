@@ -18,7 +18,8 @@
     "db:push": "supabase db push",
     "db:types": "supabase gen types typescript --linked > src/infrastructure/supabase/database.types.ts",
     "diagnostico:correo": "node scripts/diagnostico-correo.mjs",
-    "secretos": "node scripts/generate-secrets.mjs"
+    "secretos": "node scripts/generate-secrets.mjs",
+    "claves:push": "node scripts/generar-claves-vapid.mjs"
   },
   "dependencies": {
     "@clerk/localizations": "^3.30.0",

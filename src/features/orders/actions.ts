@@ -5,11 +5,14 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 
 import { sendOrderDeliveryEmail } from '@/infrastructure/email/resend-delivery-email';
+import { notificarAdminsDePago } from '@/infrastructure/notifications/admin-push';
 import { createSupabaseServerClient } from '@/infrastructure/supabase/server';
 import { requireAdmin, requireUser } from '@/features/auth/session';
 import type { ActionState } from '@/features/shared/action-state';
 import { toFieldErrors } from '@/features/shared/action-state';
 import { logger } from '@/lib/logger';
+
+import { formatMoney } from './presentation';
 
 /**
  * Server Actions del flujo de compra.
@@ -98,6 +101,51 @@ async function subirComprobante(
   }
 
   return { path };
+}
+
+/**
+ * Avisa al operador de que hay un comprobante esperando.
+ *
+ * Se llama después de que el pedido quede en `esperando_revision`, que es el
+ * único momento en que el cliente pasa a estar bloqueado esperando a una
+ * persona. Nunca propaga un fallo: la compra ya está guardada y el cliente no
+ * tiene nada que arreglar si el aviso no sale.
+ */
+async function avisarDePagoPendiente(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  orderId: string,
+): Promise<void> {
+  try {
+    // Se lee con el cliente del usuario: RLS le deja ver su propio pedido, que
+    // es justo el que acaba de crear.
+    const { data } = await supabase
+      .from('orders')
+      .select('price_amount, price_currency, user_profiles!orders_user_id_fkey ( email, full_name )')
+      .eq('id', orderId)
+      .maybeSingle();
+
+    const fila = data as unknown as {
+      price_amount: number;
+      price_currency: string;
+      user_profiles: { email: string; full_name: string | null } | null;
+    } | null;
+
+    const quien = fila?.user_profiles?.full_name ?? fila?.user_profiles?.email ?? 'Un cliente';
+    const importe = fila
+      ? formatMoney(Number(fila.price_amount), fila.price_currency)
+      : 'un pedido';
+
+    await notificarAdminsDePago({
+      titulo: 'Nuevo pago por revisar',
+      cuerpo: `${quien} envió su comprobante de ${importe}. Míralo y suéltale la cuenta.`,
+      url: '/admin/pagos',
+    });
+  } catch (error) {
+    logger.warn('No se pudo avisar del pago pendiente', {
+      orderId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -293,6 +341,8 @@ export async function crearPedidoAction(
     };
   }
 
+  await avisarDePagoPendiente(supabase, pedido.id);
+
   revalidatePath('/perfil');
   revalidatePath('/admin/pagos');
 
@@ -369,6 +419,8 @@ export async function crearPedidoCarritoAction(
     return { error: 'Subimos el comprobante, pero no pudimos enviarlo a revisión.' };
   }
 
+  await avisarDePagoPendiente(supabase, result.order_id);
+
   revalidatePath('/perfil');
   revalidatePath('/admin/pagos');
 
@@ -423,6 +475,8 @@ export async function subirComprobanteAction(
     });
     return { error: 'No se pudo enviar el comprobante a revisión.' };
   }
+
+  await avisarDePagoPendiente(supabase, orderId.data);
 
   revalidatePath('/perfil');
   revalidatePath('/admin/pagos');

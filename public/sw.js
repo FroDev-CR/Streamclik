@@ -120,3 +120,75 @@ self.addEventListener('fetch', (event) => {
 
   // Todo lo demás pasa de largo al comportamiento normal del navegador.
 });
+
+/**
+ * Avisos de pago.
+ *
+ * El operador necesita enterarse en el momento en que un cliente sube su
+ * comprobante: ya pagó y está esperando su cuenta. Sin esto habría que mirar el
+ * panel cada cierto rato.
+ *
+ * El contenido llega cifrado de punta a punta (RFC 8291): ni Google ni Apple
+ * pueden leerlo, sólo este service worker.
+ */
+self.addEventListener('push', (event) => {
+  // `showNotification` DEBE llamarse siempre que llega un push. Si no, el
+  // navegador muestra una notificación genérica de «este sitio se actualizó en
+  // segundo plano» y, si se repite, acaba revocando el permiso.
+  event.waitUntil(
+    (async () => {
+      let datos = {};
+
+      try {
+        datos = event.data ? event.data.json() : {};
+      } catch {
+        // Carga malformada: se avisa igual, sin detalles, en vez de callar.
+      }
+
+      const titulo = datos.titulo || 'StreamClick';
+
+      await self.registration.showNotification(titulo, {
+        body: datos.cuerpo || 'Tienes algo pendiente en el panel.',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        // Agrupa por etiqueta: tres pagos seguidos no dejan tres notificaciones
+        // apiladas, sino una sola actualizada con la última.
+        tag: datos.etiqueta || 'streamclick',
+        renotify: true,
+        data: { url: datos.url || '/admin/pagos' },
+      });
+    })(),
+  );
+});
+
+/**
+ * Al tocar la notificación, ir al panel.
+ *
+ * Se reutiliza una pestaña ya abierta en lugar de abrir otra: el operador suele
+ * tener la aplicación abierta, y acabar con cuatro copias del panel tras cuatro
+ * avisos es molesto y desorienta.
+ */
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const destino = (event.notification.data && event.notification.data.url) || '/admin/pagos';
+
+  event.waitUntil(
+    (async () => {
+      const clientes = await self.clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      });
+
+      for (const cliente of clientes) {
+        if (new URL(cliente.url).origin === self.location.origin) {
+          await cliente.focus();
+          if ('navigate' in cliente) await cliente.navigate(destino);
+          return;
+        }
+      }
+
+      await self.clients.openWindow(destino);
+    })(),
+  );
+});

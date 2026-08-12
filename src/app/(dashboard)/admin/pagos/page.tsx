@@ -2,9 +2,11 @@ import type { Metadata } from 'next';
 import { AlertTriangle, Wallet } from 'lucide-react';
 
 import { requireAdmin } from '@/features/auth/session';
+import { PushToggle } from '@/features/notifications/components/push-toggle';
 import { PaymentReview } from '@/features/orders/components/payment-review';
 import { PaymentSettingsForm } from '@/features/orders/components/payment-settings-form';
 import { getPaymentSettings, getPendingOrders } from '@/features/orders/queries';
+import { getServerEnv } from '@/lib/env';
 
 export const metadata: Metadata = { title: 'Pagos' };
 
@@ -19,6 +21,10 @@ export default async function PagosPage() {
   await requireAdmin();
 
   const [pendientes, datosPago] = await Promise.all([getPendingOrders(), getPaymentSettings()]);
+
+  // Sin claves VAPID configuradas no se ofrece activar nada: un botón que no
+  // puede funcionar sólo genera la duda de por qué no llegan los avisos.
+  const vapidPublicKey = getServerEnv().NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
   return (
     <div className="flex flex-col gap-8">
@@ -51,6 +57,8 @@ export default async function PagosPage() {
           <p className="mt-2 font-mono text-xs">{pendientes.error}</p>
         </div>
       )}
+
+      {vapidPublicKey && <PushToggle vapidPublicKey={vapidPublicKey} />}
 
       <PaymentReview orders={pendientes.data} />
 

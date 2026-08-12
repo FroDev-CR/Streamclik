@@ -55,6 +55,20 @@ const serverSchema = z.object({
   RESEND_API_KEY: z.string().startsWith('re_', 'RESEND_API_KEY debe empezar por re_').optional(),
   RESEND_FROM_EMAIL: z.string().email().default('cuentas@streamclick.xyz'),
 
+  /**
+   * Claves VAPID de las notificaciones push (`node scripts/generar-claves-vapid.mjs`).
+   *
+   * Opcionales para que una instalación nueva arranque sin configurarlas: sin
+   * ellas la pantalla de pagos no ofrece activar los avisos y el envío se salta
+   * en silencio, en vez de tumbar un pedido que por lo demás se guardó bien.
+   *
+   * No se rotan a la ligera: al cambiarlas, todas las suscripciones existentes
+   * dejan de valer y hay que volver a dar permiso en cada dispositivo.
+   */
+  NEXT_PUBLIC_VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  VAPID_SUBJECT: z.string().default('mailto:soporte@streamclick.xyz'),
+
   NEXT_PUBLIC_SITE_URL: z.string().url().default('http://localhost:3000'),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 });
@@ -64,6 +78,7 @@ const clientSchema = serverSchema.pick({
   NEXT_PUBLIC_SUPABASE_ANON_KEY: true,
   NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: true,
   NEXT_PUBLIC_SITE_URL: true,
+  NEXT_PUBLIC_VAPID_PUBLIC_KEY: true,
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;
