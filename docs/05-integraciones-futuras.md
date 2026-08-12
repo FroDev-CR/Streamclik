@@ -40,6 +40,12 @@ que el usuario desactivó.
 
 ### WhatsApp (Cloud API de Meta)
 
+> **Ojo al alcance.** Esto es WhatsApp **hacia los clientes**, para entregarles
+> sus PIN. El aviso *al operador* cuando entra un pago ya está resuelto con
+> notificaciones de la aplicación, y la vía de WhatsApp para eso se evaluó y se
+> descartó: ver [`11-avisos-de-pago.md`](11-avisos-de-pago.md) §5. No hay que
+> montar Baileys.
+
 1. Implementar `WhatsAppSender` con la Cloud API.
 2. Registrar una **plantilla de mensaje** aprobada por Meta. Es el punto que suele
    sorprender: fuera de la ventana de 24 horas de conversación no se puede enviar

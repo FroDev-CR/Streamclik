@@ -111,31 +111,35 @@ con el permiso revocado.
 
 ## 4 · Lo que todavía no hace
 
-- **No avisa por WhatsApp.** Está pendiente montar el proceso de Baileys
-  (§5), que necesita un servidor encendido las 24 horas.
 - **No avisa de las solicitudes de cambio de PIN**, sólo de los pagos. Añadirlo
   es llamar a `notificarAdminsDePago()` desde `solicitarCambioPinAction`.
 - **No hay reintentos.** Si el envío falla, se pierde. La tabla
   `notification_outbox` existe para eso y sería el siguiente paso si hiciera
   falta.
 
-## 5 · WhatsApp con Baileys (pendiente)
+## 5 · WhatsApp: evaluado y descartado
 
-Baileys mantiene un WebSocket abierto contra WhatsApp y guarda en disco la
-sesión del emparejamiento por QR. **No puede vivir en Vercel**: las funciones son
-efímeras y el disco es de sólo lectura. Necesita un proceso aparte, encendido de
-forma permanente.
+**No hay que implementarlo.** Se estudió montar el aviso por WhatsApp con
+Baileys y se decidió que la notificación de la aplicación lo cubre mejor. Queda
+escrito aquí para que nadie lo «complete» más adelante creyendo que era un hueco
+pendiente.
 
-Si ese proceso corre en una máquina doméstica, Vercel **no podrá llamarlo**: está
-detrás del router, sin IP pública. Así que el diseño correcto es el inverso —que
-el proceso **pregunte** a Supabase si hay pagos pendientes, en vez de esperar a
-que le avisen. Es lo que ya recomienda `HANDOFF.md` §8.2 para el outbox:
+Los motivos, por orden de peso:
 
-```sql
-select ... from notification_outbox
- where status = 'pending' and next_attempt_at <= now()
- for update skip locked;
-```
+1. **Baileys no puede vivir en Vercel.** Mantiene un WebSocket abierto contra
+   WhatsApp y guarda en disco la sesión del emparejamiento por QR; las funciones
+   de Vercel son efímeras y su disco es de sólo lectura. Exige un proceso aparte
+   encendido las veinticuatro horas.
+2. **Si ese proceso vive en una máquina doméstica, Vercel no puede llamarlo**
+   —está detrás del router, sin IP pública—, así que habría que invertir el
+   diseño y hacer que consulte él a Supabase. Más piezas para el mismo resultado.
+3. **Baileys no es oficial.** WhatsApp puede cerrar el número que se use, y ese
+   número es el del negocio.
+4. **La notificación push ya llega igual de rápido** al mismo teléfono, sin
+   depender de nadie más y sin nada que mantener encendido.
 
-Eso funciona sin abrir puertos y sobrevive a que se caiga la conexión: al volver,
-el proceso recoge lo que quedó pendiente.
+Si algún día hiciera falta WhatsApp **hacia los clientes** (no hacia el
+operador), lo que corresponde evaluar es la Cloud API oficial de Meta, con sus
+plantillas aprobadas y su coste por conversación. Está descrito en
+[`05-integraciones-futuras.md`](05-integraciones-futuras.md), y es un problema
+distinto a éste.
