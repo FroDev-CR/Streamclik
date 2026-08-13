@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { CheckCheck, ExternalLink, Inbox, MessageCircle, Rocket, X } from 'lucide-react';
+import { CheckCheck, ExternalLink, Inbox, MessageCircle, RefreshCw, Rocket, X } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { PlatformIcon } from '@/components/platform-icon';
 import type { ActionState } from '@/features/shared/action-state';
 import { formatDateTime, formatRelativeTime } from '@/lib/utils';
 
-import { rechazarPedidoAction, soltarCuentaAction } from '../actions';
+import { aprobarRenovacionAction, rechazarPedidoAction, soltarCuentaAction } from '../actions';
 import type { AdminOrderRow } from '../queries';
 import { formatMoney, whatsappLink } from '../presentation';
 
@@ -37,6 +37,23 @@ function BotonSoltar() {
         <>
           <Rocket aria-hidden className="size-4" strokeWidth={2.5} />
           Soltar compra
+        </>
+      )}
+    </Button>
+  );
+}
+
+function BotonRenovar() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button type="submit" size="md" disabled={pending}>
+      {pending ? (
+        'Renovando…'
+      ) : (
+        <>
+          <RefreshCw aria-hidden className="size-4" strokeWidth={2.5} />
+          Aprobar renovación
         </>
       )}
     </Button>
@@ -92,7 +109,14 @@ function FormularioRechazo({ orderId }: { orderId: string }) {
 }
 
 function PedidoPendiente({ order }: { order: AdminOrderRow }) {
-  const [state, formAction] = useActionState<ActionState, FormData>(soltarCuentaAction, {});
+  // Una renovación extiende la asignación que el cliente ya tiene; una compra
+  // entrega un perfil libre. Son funciones distintas de base de datos y aprobar
+  // una con la otra le cambiaría el perfil al cliente, que es justo lo que
+  // renovar existe para evitar.
+  const [state, formAction] = useActionState<ActionState, FormData>(
+    order.isRenewal ? aprobarRenovacionAction : soltarCuentaAction,
+    {},
+  );
 
   // Entregado en esta misma sesión: la tarjeta se queda para confirmar qué pasó,
   // en lugar de desaparecer y dejar al operador dudando si pulsó bien.
@@ -108,8 +132,11 @@ function PedidoPendiente({ order }: { order: AdminOrderRow }) {
             </span>
 
             <div className="min-w-0">
-              <p className="truncate font-[family-name:var(--font-display)] text-base font-black uppercase leading-tight">
+              <p className="flex items-center gap-2 truncate font-[family-name:var(--font-display)] text-base font-black uppercase leading-tight">
                 {order.serviceName}
+                {/* Distinguirlas de un vistazo importa: el gesto de aprobar es
+                    distinto y el resultado para el cliente también. */}
+                {order.isRenewal && <Badge tone="accent">Renovación</Badge>}
               </p>
               <p className="truncate text-xs text-[var(--color-content-muted)]">
                 {order.userName ? `${order.userName} · ` : ''}
@@ -208,17 +235,26 @@ function PedidoPendiente({ order }: { order: AdminOrderRow }) {
             <form action={formAction} className="flex flex-wrap items-end gap-2">
               <input type="hidden" name="orderId" value={order.id} />
 
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor={`vence-${order.id}`}>Vence (opcional)</Label>
-                <Input
-                  id={`vence-${order.id}`}
-                  name="expiresAt"
-                  type="date"
-                  className="h-9 w-40 text-xs"
-                />
-              </div>
+              {/* En una renovación no se elige fecha: son 30 días sumados a lo
+                  que le quedaba, y calcularlo a mano es justo donde se cometen
+                  los errores que le regalan o le quitan tiempo al cliente. */}
+              {order.isRenewal ? (
+                <BotonRenovar />
+              ) : (
+                <>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor={`vence-${order.id}`}>Vence (opcional)</Label>
+                    <Input
+                      id={`vence-${order.id}`}
+                      name="expiresAt"
+                      type="date"
+                      className="h-9 w-40 text-xs"
+                    />
+                  </div>
 
-              <BotonSoltar />
+                  <BotonSoltar />
+                </>
+              )}
             </form>
 
             <FormularioRechazo orderId={order.id} />

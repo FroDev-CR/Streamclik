@@ -83,6 +83,7 @@ export default async function MisSuscripcionesPage() {
             <SubscriptionCard
               key={account.assignmentId}
               accountId={account.accountId}
+              assignmentId={account.assignmentId}
               serviceName={account.serviceName}
               brandColor={account.brandColor}
               profileLabel={account.profileLabel}

@@ -1,16 +1,30 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Check, Copy, Eye, EyeOff, KeyRound, Radio, ShieldAlert, Users } from 'lucide-react';
+import {
+  Check,
+  Copy,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Radio,
+  RefreshCw,
+  ShieldAlert,
+  Users,
+} from 'lucide-react';
 
 import {
   LIVE_PIN_WINDOW_SECONDS,
   PIN_TYPE_LABELS,
+  VENTANA_RENOVACION_DIAS,
   isPinExpired,
+  puedeRenovar,
   secondsUntilExpiry,
   type VerificationPin,
 } from '@/core/domain/entities';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useLivePins } from '@/features/pins/use-live-pins';
 import { cn, formatCountdown, formatDateTime, formatRelativeTime } from '@/lib/utils';
@@ -27,6 +41,8 @@ import { cn, formatCountdown, formatDateTime, formatRelativeTime } from '@/lib/u
 
 interface SubscriptionCardProps {
   accountId: string;
+  /** La asignación es lo que se renueva, no la cuenta. */
+  assignmentId: string;
   serviceName: string;
   brandColor: string;
   profileLabel: string;
@@ -229,6 +245,7 @@ function CodigoVivo({
 
 export function SubscriptionCard({
   accountId,
+  assignmentId,
   serviceName,
   brandColor,
   profileLabel,
@@ -246,6 +263,8 @@ export function SubscriptionCard({
     ? Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86_400_000)
     : null;
   const porVencer = diasRestantes !== null && diasRestantes <= 3;
+
+  const renovable = puedeRenovar({ status: 'active', expiresAt });
 
   return (
     <Card className="overflow-hidden">
@@ -363,9 +382,37 @@ export function SubscriptionCard({
       </div>
 
       {expiresAt && (
-        <p className="border-t-2 border-[var(--color-border)] px-4 py-3 text-xs text-[var(--color-content-muted)]">
-          Tu acceso vence el <strong>{formatDateTime(expiresAt)}</strong>
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t-2 border-[var(--color-border)] px-4 py-3">
+          <p className="text-xs text-[var(--color-content-muted)]">
+            {diasRestantes !== null && diasRestantes <= 0 ? (
+              <>
+                Tu acceso <strong>venció</strong> el {formatDateTime(expiresAt)}
+              </>
+            ) : (
+              <>
+                Tu acceso vence el <strong>{formatDateTime(expiresAt)}</strong>
+              </>
+            )}
+          </p>
+
+          {/* El botón aparece siempre que hay vencimiento, pero sólo se enciende
+              dentro de la ventana. Apagado y con la fecha delante avisa de que
+              hay algo que hacer; escondido hasta el último día haría que quien
+              mira su panel el día 28 no se entere de nada. */}
+          {renovable ? (
+            <Link href={`/renovar/${assignmentId}`}>
+              <Button size="sm">
+                <RefreshCw aria-hidden className="size-4" strokeWidth={2.5} />
+                Renovar
+              </Button>
+            </Link>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 text-[0.68rem] text-[var(--color-content-subtle)]">
+              <RefreshCw aria-hidden className="size-3.5" strokeWidth={2.5} />
+              Podrás renovar {VENTANA_RENOVACION_DIAS} días antes
+            </span>
+          )}
+        </div>
       )}
     </Card>
   );

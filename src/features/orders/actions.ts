@@ -486,6 +486,164 @@ export async function subirComprobanteAction(
   };
 }
 
+const renovacionSchema = z.object({
+  assignmentId: z.string().uuid('Suscripción no válida'),
+  note: z
+    .string()
+    .trim()
+    .max(280, 'La nota no puede superar los 280 caracteres')
+    .optional()
+    .transform((value) => (value ? value : null)),
+});
+
+/**
+ * Renovar una suscripción: crear el pedido y adjuntar el comprobante.
+ *
+ * No reutiliza `crearPedidoAction` porque una renovación **no entrega un perfil
+ * nuevo**: extiende el que el cliente ya tiene, con su PIN y sus credenciales.
+ * Tratarlas como la misma cosa era justo lo que hacía que renovar te cambiara de
+ * perfil.
+ *
+ * El precio lo pone `crear_renovacion()` desde el servicio, nunca el formulario.
+ */
+export async function crearRenovacionAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireUser('/dashboard');
+
+  const parsed = renovacionSchema.safeParse({
+    assignmentId: formData.get('assignmentId'),
+    note: formData.get('note'),
+  });
+
+  if (!parsed.success) {
+    return { fieldErrors: toFieldErrors(parsed.error.issues) };
+  }
+
+  const comprobante = validarComprobante(formData.get('receipt'));
+  if ('error' in comprobante) {
+    return { fieldErrors: { receipt: comprobante.error } };
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase.rpc('crear_renovacion', {
+    p_assignment_id: parsed.data.assignmentId,
+    p_note: parsed.data.note,
+  });
+
+  if (error) {
+    logger.error('No se pudo crear la renovación', { error: error.message });
+    return { error: 'No se pudo registrar la renovación. Inténtalo de nuevo.' };
+  }
+
+  const resultado = (data ?? {}) as { status?: string; order_id?: string };
+
+  if (resultado.status === 'no_encontrada') {
+    return { error: 'Esa suscripción ya no está a tu nombre.' };
+  }
+  if (resultado.status === 'no_activa') {
+    return { error: 'Esa suscripción ya no está activa. Escríbenos y lo vemos.' };
+  }
+  if (resultado.status === 'sin_servicio') {
+    return { error: 'No pudimos calcular el precio de la renovación.' };
+  }
+  if (!resultado.order_id) {
+    return { error: 'No se pudo registrar la renovación.' };
+  }
+
+  const subida = await subirComprobante(supabase, user.id, resultado.order_id, comprobante.file);
+  if ('error' in subida) return { error: subida.error };
+
+  const { error: errorEstado } = await supabase
+    .from('orders')
+    .update({
+      receipt_path: subida.path,
+      status: 'esperando_revision',
+      submitted_at: new Date().toISOString(),
+    })
+    .eq('id', resultado.order_id);
+
+  if (errorEstado) {
+    logger.error('La renovación se creó pero no pasó a revisión', {
+      orderId: resultado.order_id,
+      error: errorEstado.message,
+    });
+    return { error: 'Subimos el comprobante pero no pudimos enviarlo a revisión.' };
+  }
+
+  await avisarDePagoPendiente(supabase, resultado.order_id);
+
+  revalidatePath('/perfil');
+  revalidatePath('/dashboard');
+  revalidatePath('/admin/pagos');
+
+  redirect('/perfil#historial-compras');
+}
+
+/**
+ * Aprobar una renovación: sumar los días y marcar el pedido entregado.
+ *
+ * Toda la lógica vive en `aprobar_renovacion()`, en una sola transacción y con
+ * la autorización comprobada dentro, por lo mismo que `soltar_cuenta()`: dos
+ * clics seguidos no pueden sumar sesenta días por un pago de treinta.
+ */
+export async function aprobarRenovacionAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireAdmin();
+
+  const orderId = z.string().uuid().safeParse(formData.get('orderId'));
+  if (!orderId.success) {
+    return { error: 'Pedido no válido' };
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase.rpc('aprobar_renovacion', {
+    p_order_id: orderId.data,
+    p_dias: 30,
+  });
+
+  if (error) {
+    logger.error('Falló al aprobar la renovación', { error: error.message });
+    return { error: 'No se pudo aprobar la renovación. Inténtalo de nuevo.' };
+  }
+
+  const resultado = (data ?? {}) as { status?: string; expires_at?: string };
+
+  revalidatePath('/admin/pagos');
+  revalidatePath('/admin');
+  revalidatePath('/admin/clientes');
+  revalidatePath('/dashboard');
+  revalidatePath('/perfil');
+
+  switch (resultado.status) {
+    case 'renovado':
+    case 'ya_renovado': {
+      const hasta = resultado.expires_at
+        ? ` Vence el ${new Date(resultado.expires_at).toLocaleDateString('es-CR')}.`
+        : '';
+      return {
+        success:
+          resultado.status === 'renovado'
+            ? `Renovación aplicada.${hasta}`
+            : `Esta renovación ya estaba aplicada.${hasta}`,
+      };
+    }
+    case 'no_es_renovacion':
+      return { error: 'Ese pedido no es una renovación. Usa «Soltar compra».' };
+    case 'asignacion_no_encontrada':
+      return { error: 'La suscripción que renovaba ya no existe.' };
+    case 'no_encontrado':
+      return { error: 'Ese pedido ya no existe.' };
+    default:
+      return { error: 'Respuesta inesperada al aprobar la renovación.' };
+  }
+}
+
 /** El cliente desiste de un pedido que aún nadie ha revisado. */
 export async function cancelarPedidoAction(
   _prevState: ActionState,

@@ -472,6 +472,8 @@ export interface Database {
           reviewed_by: string | null;
           review_note: string | null;
           assignment_id: string | null;
+          /** Si viene informado, el pedido renueva esa asignación. */
+          renewal_assignment_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -503,6 +505,7 @@ export interface Database {
           is_cart?: boolean;
           referrer_user_id?: string | null;
           referral_code_used?: string | null;
+          renewal_assignment_id?: string | null;
         };
         Relationships: [
           {
@@ -866,6 +869,14 @@ export interface Database {
     };
 
     Functions: {
+      crear_renovacion: {
+        Args: { p_assignment_id: string; p_note?: string | null };
+        Returns: Json;
+      };
+      aprobar_renovacion: {
+        Args: { p_order_id: string; p_dias?: number };
+        Returns: Json;
+      };
       is_admin: {
         Args: { p_user_id?: string };
         Returns: boolean;

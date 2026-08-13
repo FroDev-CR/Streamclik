@@ -187,6 +187,42 @@ export function isAssignmentActive(
   return true;
 }
 
+/**
+ * Con cuánta antelación se puede renovar.
+ *
+ * Dos días. Antes de eso el botón está, pero apagado: enseñarlo desde el primer
+ * día invita a pagar dos veces el mismo mes, y esconderlo hasta el último
+ * momento hace que quien mira su panel el día 28 no sepa que tiene que hacer
+ * algo. Apagado y con la fecha a la vista comunica las dos cosas a la vez.
+ */
+export const VENTANA_RENOVACION_DIAS = 2;
+
+/**
+ * ¿Puede renovarse ya esta suscripción?
+ *
+ * Una asignación **sin** vencimiento no se renueva: no caduca, así que no hay
+ * nada que extender y cobrar por ello sería cobrar por nada.
+ *
+ * Una ya vencida sí, y es el caso más importante: es exactamente la persona que
+ * se quedó sin servicio y quiere volver. El botón tiene que estar ahí.
+ */
+export function puedeRenovar(
+  assignment: Pick<ProfileAssignment, 'status' | 'expiresAt'>,
+  now = new Date(),
+): boolean {
+  if (assignment.status !== 'active') return false;
+  if (!assignment.expiresAt) return false;
+
+  const faltanMs = new Date(assignment.expiresAt).getTime() - now.getTime();
+  return faltanMs <= VENTANA_RENOVACION_DIAS * 24 * 60 * 60 * 1000;
+}
+
+/** Días que faltan para el vencimiento. Negativo si ya pasó. */
+export function diasHastaVencimiento(expiresAt: string, now = new Date()): number {
+  const diff = new Date(expiresAt).getTime() - now.getTime();
+  return Math.ceil(diff / (24 * 60 * 60 * 1000));
+}
+
 /** Etiquetas en español para el tipo de código, mostradas junto al PIN. */
 export const PIN_TYPE_LABELS: Record<PinCodeType, string> = {
   household: 'Verificación de hogar',

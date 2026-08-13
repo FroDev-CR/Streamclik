@@ -22,6 +22,8 @@ export interface OrderRow {
   iconKey: string;
   isCombo: boolean;
   isCart: boolean;
+  /** Renueva una asignación existente en vez de entregar un perfil nuevo. */
+  isRenewal: boolean;
   items: Array<{
     name: string;
     slug: string;
@@ -64,7 +66,7 @@ interface QueryResult<T> {
 
 const SELECT_PEDIDO = `
   id, status, is_cart, price_amount, price_currency, receipt_path, receipt_note,
-  review_note, referral_code_used, submitted_at, created_at,
+  review_note, referral_code_used, submitted_at, created_at, renewal_assignment_id,
   streaming_services ( name, slug, brand_color, icon_key ),
   streaming_combos ( name, slug ),
   order_items (
@@ -86,6 +88,7 @@ type FilaPedido = {
   referral_code_used: string | null;
   submitted_at: string | null;
   created_at: string;
+  renewal_assignment_id: string | null;
   streaming_services: {
     name: string;
     slug: string;
@@ -152,6 +155,7 @@ function mapear(fila: FilaPedido): OrderRow {
     iconKey: fila.is_cart ? 'generic' : first.iconKey,
     isCombo: Boolean(fila.streaming_combos),
     isCart: fila.is_cart,
+    isRenewal: Boolean(fila.renewal_assignment_id),
     items,
     priceAmount: Number(fila.price_amount),
     priceCurrency: fila.price_currency,
@@ -277,6 +281,99 @@ export async function getPaymentSettings(): Promise<PaymentSettings> {
     sinpeNumber: data?.sinpe_number ?? '',
     sinpeName: data?.sinpe_name ?? '',
     instructions: data?.instructions ?? '',
+  };
+}
+
+export interface RenovacionInfo {
+  assignmentId: string;
+  serviceName: string;
+  serviceSlug: string;
+  brandColor: string;
+  iconKey: string;
+  accountLabel: string;
+  profileLabel: string;
+  expiresAt: string | null;
+  priceAmount: number;
+  priceCurrency: string;
+  /** Id del pedido de renovación ya en curso, si lo hay. */
+  renovacionEnCurso: string | null;
+}
+
+/**
+ * Lo que hace falta para pintar la pantalla de renovación.
+ *
+ * Se lee con el cliente del usuario: RLS ya restringe `profile_assignments` a
+ * las suyas, así que una asignación ajena vuelve vacía y la página responde 404
+ * sin necesidad de comprobar la propiedad aquí.
+ */
+export async function getRenovacionInfo(assignmentId: string): Promise<RenovacionInfo | null> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from('profile_assignments')
+    .select(
+      `
+      id, expires_at, status,
+      account_profiles (
+        label,
+        streaming_accounts (
+          label,
+          streaming_services ( name, slug, brand_color, icon_key, price_amount, price_currency )
+        )
+      )
+    `,
+    )
+    .eq('id', assignmentId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  type Fila = {
+    id: string;
+    expires_at: string | null;
+    status: string;
+    account_profiles: {
+      label: string;
+      streaming_accounts: {
+        label: string;
+        streaming_services: {
+          name: string;
+          slug: string;
+          brand_color: string;
+          icon_key: string;
+          price_amount: number;
+          price_currency: string;
+        } | null;
+      } | null;
+    } | null;
+  };
+
+  const fila = data as unknown as Fila;
+  const servicio = fila.account_profiles?.streaming_accounts?.streaming_services;
+
+  if (!servicio) return null;
+
+  // Si ya hay una renovación esperando, la pantalla lo dice en vez de dejar
+  // crear otra y que el operador se encuentre dos pedidos por el mismo mes.
+  const { data: enCurso } = await supabase
+    .from('orders')
+    .select('id')
+    .eq('renewal_assignment_id', assignmentId)
+    .in('status', ['esperando_comprobante', 'esperando_revision'])
+    .maybeSingle();
+
+  return {
+    assignmentId: fila.id,
+    serviceName: servicio.name,
+    serviceSlug: servicio.slug,
+    brandColor: servicio.brand_color,
+    iconKey: servicio.icon_key,
+    accountLabel: fila.account_profiles?.streaming_accounts?.label ?? '—',
+    profileLabel: fila.account_profiles?.label ?? '—',
+    expiresAt: fila.expires_at,
+    priceAmount: Number(servicio.price_amount),
+    priceCurrency: servicio.price_currency,
+    renovacionEnCurso: enCurso?.id ?? null,
   };
 }
 
