@@ -440,14 +440,22 @@ export async function deleteAccountAction(
 // -----------------------------------------------------------------------------
 
 /**
- * Borrar un cliente de prueba.
+ * Borrar un cliente.
  *
- * Existe para limpiar los registros que uno mismo crea probando, no para dar de
- * baja a nadie: **se niega en cuanto el cliente tiene un pedido o una
- * asignación**. Ese rastro es el historial de ventas y el registro de quién tuvo
- * acceso a qué, y las claves foráneas lo borrarían en cascada sin preguntar.
- * Como el borrado no se puede deshacer, la comprobación va aquí y no sólo en la
- * interfaz: una Server Action es un endpoint POST público.
+ * Borra **siempre**, tenga historial o no. Es una decisión explícita del
+ * operador: antes se bloqueaba cuando había pedidos, y resultó que el caso real
+ * —limpiar cuentas de prueba que ya habían hecho compras de prueba— quedaba
+ * fuera.
+ *
+ * Lo que se lleva por delante no es poco, y por eso la interfaz lo enumera antes
+ * de pedir confirmación: las claves foráneas de `orders` y `profile_assignments`
+ * son `on delete cascade`, así que desaparecen sus compras y el registro de qué
+ * perfiles tuvo. Los perfiles en sí **no** se borran: `account_profiles` cuelga
+ * de la cuenta, no del cliente, así que el inventario queda libre y reutilizable.
+ *
+ * Antes de borrar se anota en auditoría **qué** se está borrando, con el recuento
+ * de pedidos incluido. Es el único rastro que sobrevive, y sin él no habría forma
+ * de explicar después por qué faltan ventas en un informe.
  *
  * El orden importa. Primero Clerk y después Supabase:
  *
@@ -494,6 +502,8 @@ export async function deleteClientAction(
     return { error: 'Sólo se pueden borrar cuentas de cliente.' };
   }
 
+  // No condiciona el borrado: se guarda para dejarlo escrito en auditoría, que
+  // es lo único que quedará cuando las filas ya no estén.
   const [{ count: pedidos }, { count: asignaciones }] = await Promise.all([
     supabase.from('orders').select('id', { count: 'exact', head: true }).eq('user_id', clientId),
     supabase
@@ -501,13 +511,6 @@ export async function deleteClientAction(
       .select('id', { count: 'exact', head: true })
       .eq('user_id', clientId),
   ]);
-
-  if ((pedidos ?? 0) > 0 || (asignaciones ?? 0) > 0) {
-    return {
-      error:
-        'Este cliente tiene historial y borrarlo se llevaría por delante sus pedidos y el registro de los perfiles que tuvo. Libérale los perfiles desde el banco si ya no es cliente.',
-    };
-  }
 
   if (cliente.clerk_user_id) {
     try {
@@ -551,7 +554,14 @@ export async function deleteClientAction(
     action: 'client.deleted',
     entity_type: 'user_profile',
     entity_id: clientId,
-    metadata: { email: cliente.email, full_name: cliente.full_name },
+    metadata: {
+      email: cliente.email,
+      full_name: cliente.full_name,
+      // Cuánto se llevó por delante. Es lo único que quedará si alguien pregunta
+      // más adelante por qué faltan ventas en un informe.
+      pedidos_borrados: pedidos ?? 0,
+      asignaciones_borradas: asignaciones ?? 0,
+    },
   });
 
   logger.info('Cliente borrado', { clientId, actor: admin.id });
