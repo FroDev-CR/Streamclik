@@ -3673,6 +3673,9 @@ alter table public.push_subscriptions enable row level security;
 -- a su teléfono, así que la fila pertenece a quien la creó y nadie más la ve.
 -- El envío real lo hace el servidor con la clave de servicio, que omite RLS.
 -- -----------------------------------------------------------------------------
+-- `drop` antes de `create`: sin él, volver a aplicar esta migración falla con
+-- «policy already exists» y deja el resto del archivo sin ejecutar.
+drop policy if exists "usuarios gestionan sus suscripciones push" on public.push_subscriptions;
 create policy "usuarios gestionan sus suscripciones push"
   on public.push_subscriptions for all to authenticated
   using (user_id = public.current_user_id())
