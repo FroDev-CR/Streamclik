@@ -195,6 +195,28 @@ export default async function LandingPage() {
               </li>
             ))}
           </ol>
+
+          {/* El recorrido completo en vídeo.
+              `preload="none"` con póster: la página no descarga el vídeo hasta
+              que alguien lo pulsa. En móvil con datos, arrastrar un megabyte que
+              la mayoría no va a ver encarece la visita a cambio de nada.
+              Sin `autoPlay` porque lleva voz: un vídeo que arranca solo con
+              sonido en el móvil es motivo para cerrar la pestaña. */}
+          <figure className="landing-video">
+            <video
+              controls
+              playsInline
+              preload="none"
+              poster="/video/como-funciona-poster.jpg"
+              className="landing-video-player"
+            >
+              <source src="/video/como-funciona.mp4" type="video/mp4" />
+              Tu navegador no puede reproducir el vídeo.
+            </video>
+            <figcaption>
+              El proceso completo en menos de un minuto: elegir, pagar y recibir tu perfil.
+            </figcaption>
+          </figure>
         </div>
       </section>
 

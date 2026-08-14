@@ -2492,6 +2492,38 @@
     background: var(--landing-yellow);
   }
 
+  /* El vídeo del recorrido.
+     Es vertical (grabado de un móvil), así que se acota el ancho en lugar de
+     dejarlo crecer: a pantalla completa en un escritorio ocuparía toda la
+     página de alto y empujaría el resto fuera de la vista. */
+  .landing-video {
+    margin: 64px auto 0;
+    max-width: 340px;
+  }
+
+  .landing-video-player {
+    display: block;
+    width: 100%;
+    aspect-ratio: 9 / 16;
+    border: 3px solid var(--landing-black);
+    border-radius: 19px;
+    background: var(--landing-black);
+    box-shadow: 7px 7px 0 var(--landing-black);
+    /* El póster es 9:16 igual que el vídeo, así que `cover` no recorta nada;
+       está para que un póster futuro de otra proporción tampoco deforme. */
+    object-fit: cover;
+  }
+
+  .landing-video figcaption {
+    margin: 18px 0 0;
+    text-align: center;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    /* `opacity` y no un color propio: es como el resto de la landing atenúa el
+       texto secundario, y así sigue funcionando si cambia el fondo. */
+    opacity: 0.7;
+  }
+
   .landing-final-cta {
     position: relative;
     isolation: isolate;

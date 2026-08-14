@@ -33,3 +33,5 @@
 *.woff binary
 *.woff2 binary
 *.pdf  binary
+*.mp4  binary
+*.webm binary
