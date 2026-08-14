@@ -747,6 +747,26 @@ export interface Database {
         ];
       };
 
+      page_views: {
+        Row: {
+          id: number;
+          path: string;
+          country: string | null;
+          referrer: string | null;
+          session_id: string;
+          created_at: string;
+        };
+        Insert: {
+          path: string;
+          country?: string | null;
+          referrer?: string | null;
+          session_id: string;
+        };
+        // Una visita es un hecho que ya ocurrió. Modificarla sería reescribirlo.
+        Update: NoUpdates;
+        Relationships: [];
+      };
+
       account_reports: {
         Row: {
           id: string;
@@ -921,6 +941,10 @@ export interface Database {
     };
 
     Functions: {
+      resumen_visitas: {
+        Args: { p_dias?: number };
+        Returns: Json;
+      };
       crear_renovacion: {
         Args: { p_assignment_id: string; p_note?: string | null };
         Returns: Json;

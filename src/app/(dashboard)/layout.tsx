@@ -10,6 +10,7 @@ import {
   Settings,
   ShoppingBag,
   ShoppingCart,
+  TrendingUp,
   UserRound,
   Users,
   Wallet,
@@ -58,6 +59,7 @@ const NAV_ADMIN = [
   { href: '/admin/pagos', icono: Wallet, etiqueta: 'Pagos' },
   { href: '/admin/solicitudes', icono: LifeBuoy, etiqueta: 'Solicitudes' },
   { href: '/admin/clientes', icono: Users, etiqueta: 'Clientes' },
+  { href: '/admin/visitas', icono: TrendingUp, etiqueta: 'Visitas' },
   { href: '/admin/multimedia', icono: Images, etiqueta: 'Multimedia' },
   { href: '/admin/plataformas', icono: Settings, etiqueta: 'Configuración' },
 ] as const;

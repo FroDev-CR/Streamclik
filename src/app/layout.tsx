@@ -2,9 +2,11 @@ import { ClerkProvider } from '@clerk/nextjs';
 import { esES } from '@clerk/localizations';
 import type { Metadata, Viewport } from 'next';
 import { Kanit } from 'next/font/google';
+import Script from 'next/script';
 import { Toaster } from 'sonner';
 
 import { PwaRegister } from '@/components/pwa-register';
+import { VisitTracker } from '@/components/visit-tracker';
 import { WhatsappButton } from '@/components/whatsapp-button';
 
 import { clerkAppearance } from '@/features/auth/clerk-appearance';
@@ -130,7 +132,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
           <PwaRegister />
           <WhatsappButton />
+          <VisitTracker />
           <Toaster position="top-right" offset={20} />
+
+          {/* Vercel Web Analytics.
+              Se carga el script directamente en lugar de instalar
+              `@vercel/analytics`: es el mismo archivo que inyecta el paquete,
+              servido por el borde de Vercel, y evita una dependencia para dos
+              líneas. Sólo existe en producción — en local esa ruta no la sirve
+              nadie y daría un 404 en cada carga.
+              Requiere activar Analytics en el panel del proyecto; sin eso el
+              script responde 404 y no pasa nada más. */}
+          {process.env.NODE_ENV === 'production' && (
+            <Script src="/_vercel/insights/script.js" strategy="afterInteractive" />
+          )}
         </body>
       </html>
     </ClerkProvider>

@@ -49,6 +49,6 @@ export const config = {
    * de ser instalable y de actualizarse, otra vez sin ningún error visible.
    */
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|api/webhooks|sw\\.js|manifest\\.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/webhooks|api/visita|sw\\.js|manifest\\.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };
