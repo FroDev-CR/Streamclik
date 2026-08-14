@@ -512,24 +512,32 @@ export async function deleteClientAction(
       .eq('user_id', clientId),
   ]);
 
+  // Un fallo en Clerk **no** aborta el borrado.
+  //
+  // La versión anterior sí lo hacía y era peor de lo que parecía: si la llamada
+  // a Clerk fallaba, la acción devolvía «no se ha tocado nada» y el operador
+  // pulsaba una y otra vez sin que el cliente desapareciera nunca. El objetivo
+  // aquí es que la fila se vaya; que además se limpie la identidad es deseable,
+  // pero no puede ser la condición para lo primero.
+  let avisoClerk: string | null = null;
+
   if (cliente.clerk_user_id) {
     try {
       const clerk = await clerkClient();
       await clerk.users.deleteUser(cliente.clerk_user_id);
     } catch (error) {
-      // 404 = ya no estaba en Clerk. Es el reintento tras un borrado a medias, y
-      // lo que falta por hacer es justo lo que viene después.
+      // 404 = ya no estaba en Clerk. No es un fallo: es el reintento tras un
+      // borrado a medias, o una cuenta creada en otra instancia.
       const status = (error as { status?: number })?.status;
+      const mensaje = error instanceof Error ? error.message : String(error);
 
       if (status !== 404) {
         logger.error('No se pudo borrar la identidad en Clerk', {
           clientId,
-          error: error instanceof Error ? error.message : String(error),
+          status,
+          error: mensaje,
         });
-        return {
-          error:
-            'No se pudo borrar la cuenta en Clerk, así que no se ha tocado nada. Inténtalo de nuevo.',
-        };
+        avisoClerk = mensaje;
       }
     }
   }
@@ -537,13 +545,27 @@ export async function deleteClientAction(
   const { error } = await supabase.from('user_profiles').delete().eq('id', clientId);
 
   if (error) {
-    logger.error('Se borró la identidad en Clerk pero no el perfil', {
-      clientId,
-      error: error.message,
-    });
+    logger.error('No se pudo borrar el perfil', { clientId, error: error.message });
+    // Se devuelve el mensaje real de Postgres y no uno genérico: si algo lo
+    // impide —una clave foránea nueva, una política— es lo único que permite
+    // saber qué, en lugar de quedarse pulsando el botón.
+    return { error: `No se pudo borrar: ${error.message}` };
+  }
+
+  // Comprobación explícita de que la fila se fue. `delete()` sin `returning`
+  // responde igual cuando borra cero filas que cuando borra una, y ese silencio
+  // es exactamente el síntoma de «le doy y no pasa nada»: si RLS filtrara la
+  // fila, Postgres no devolvería error, sólo no borraría nada.
+  const { count: quedan } = await supabase
+    .from('user_profiles')
+    .select('id', { count: 'exact', head: true })
+    .eq('id', clientId);
+
+  if ((quedan ?? 0) > 0) {
+    logger.error('El borrado no afectó a ninguna fila', { clientId });
     return {
       error:
-        'La cuenta se borró en Clerk pero el perfil sigue en la lista. Vuelve a pulsar borrar para terminar.',
+        'La base de datos no borró la fila y tampoco devolvió un error. Suele ser que tu usuario no tiene rol admin en user_profiles.',
     };
   }
 
@@ -568,7 +590,18 @@ export async function deleteClientAction(
 
   revalidatePath('/admin/clientes');
 
-  return { success: `«${cliente.full_name ?? cliente.email}» eliminado` };
+  const nombre = cliente.full_name ?? cliente.email;
+
+  // Si Clerk falló, el perfil ya no está pero la identidad sigue viva: esa
+  // persona podría volver a entrar y aparecer como cliente nuevo. Se dice, en
+  // lugar de cantar un éxito a medias.
+  if (avisoClerk) {
+    return {
+      success: `«${nombre}» eliminado del panel, pero su cuenta de acceso sigue activa en Clerk (${avisoClerk}). Si vuelve a entrar, reaparecerá.`,
+    };
+  }
+
+  return { success: `«${nombre}» eliminado` };
 }
 
 // -----------------------------------------------------------------------------

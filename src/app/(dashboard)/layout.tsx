@@ -4,8 +4,8 @@ import {
   Boxes,
   Images,
   Inbox,
-  KeyRound,
   LayoutGrid,
+  LifeBuoy,
   LogOut,
   Settings,
   ShoppingBag,
@@ -21,6 +21,7 @@ import { WelcomeToast } from '@/features/auth/components/welcome-toast';
 import { requireUser } from '@/features/auth/session';
 import { countPendingOrders } from '@/features/orders/queries';
 import { countPendingPinChangeRequests } from '@/features/pins/queries';
+import { countPendingAccountReports } from '@/features/reports/queries';
 
 /**
  * Todas las rutas bajo este layout dependen de la cookie de sesión, así que
@@ -48,13 +49,14 @@ const NAV_CLIENTE = [
   { href: '/perfil', icono: UserRound, etiqueta: 'Mi perfil' },
   { href: '/catalogo', icono: ShoppingBag, etiqueta: 'Comprar más' },
   { href: '/carrito', icono: ShoppingCart, etiqueta: 'Carrito' },
+  { href: '/soporte', icono: LifeBuoy, etiqueta: 'Soporte' },
 ] as const;
 
 const NAV_ADMIN = [
   { href: '/admin', icono: Boxes, etiqueta: 'Banco' },
   { href: '/admin/buzon', icono: Inbox, etiqueta: 'Buzón' },
   { href: '/admin/pagos', icono: Wallet, etiqueta: 'Pagos' },
-  { href: '/admin/pines', icono: KeyRound, etiqueta: 'Cambios de PIN' },
+  { href: '/admin/solicitudes', icono: LifeBuoy, etiqueta: 'Solicitudes' },
   { href: '/admin/clientes', icono: Users, etiqueta: 'Clientes' },
   { href: '/admin/multimedia', icono: Images, etiqueta: 'Multimedia' },
   { href: '/admin/plataformas', icono: Settings, etiqueta: 'Configuración' },
@@ -84,9 +86,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
    * consultan para administradores; un cliente pagaría una consulta que además
    * RLS le devolvería vacía.
    */
-  const [pagosPendientes, pinesPendientes] = isAdmin
-    ? await Promise.all([countPendingOrders(), countPendingPinChangeRequests()])
-    : [0, 0];
+  // «Solicitudes» junta dos colas, así que su aviso es la suma: al operador le
+  // da igual si lo que espera es un PIN o un problema de cuenta, lo que necesita
+  // saber es cuántas cosas tiene sin atender.
+  const [pagosPendientes, pinesPendientes, reportesPendientes] = isAdmin
+    ? await Promise.all([
+        countPendingOrders(),
+        countPendingPinChangeRequests(),
+        countPendingAccountReports(),
+      ])
+    : [0, 0, 0];
 
   return (
     <div className="flex min-h-dvh flex-col bg-[var(--color-canvas)]">
@@ -108,8 +117,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
               const avisos =
                 href === '/admin/pagos'
                   ? pagosPendientes
-                  : href === '/admin/pines'
-                    ? pinesPendientes
+                  : href === '/admin/solicitudes'
+                    ? pinesPendientes + reportesPendientes
                     : 0;
 
               return (

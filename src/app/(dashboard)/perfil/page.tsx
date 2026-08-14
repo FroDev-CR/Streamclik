@@ -122,11 +122,7 @@ export default async function PerfilPage() {
         </div>
       )}
 
-      <RewardsPanel
-        referralCode={rewards.data.referralCode}
-        rewards={rewards.data.rewards}
-        services={rewards.data.services}
-      />
+      <RewardsPanel referralCode={rewards.data.referralCode} rewards={rewards.data.rewards} />
 
       <section
         id="historial-compras"

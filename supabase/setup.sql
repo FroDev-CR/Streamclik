@@ -4043,3 +4043,314 @@ comment on function public.aprobar_renovacion is
 
 grant execute on function public.aprobar_renovacion(uuid, integer) to authenticated;
 
+
+
+-- ▼▼▼ 20260813002200_reportes_de_cuenta.sql ▼▼▼
+
+-- =============================================================================
+-- 0023 · Reportes de cuenta
+-- =============================================================================
+-- Cuando a un cliente le falla la cuenta —le pide PIN que no tiene, lo saca la
+-- verificación de hogar, alguien más está usando su perfil— hoy escribe por
+-- WhatsApp. Eso significa que el problema vive en un chat, sin saber de qué
+-- cuenta habla, sin captura y sin forma de ver cuántos van.
+--
+-- Tabla aparte de `pin_change_requests` a propósito: un cambio de PIN es una
+-- petición con un dato concreto y una resolución mecánica; un reporte es un
+-- problema abierto, con motivo libre y capturas. Meterlos en la misma tabla
+-- obligaría a dejar la mitad de las columnas nulas en cada fila.
+-- =============================================================================
+
+create table if not exists public.account_reports (
+  id            uuid primary key default gen_random_uuid(),
+
+  -- Se apunta a la asignación y no a la cuenta: es lo que ata el reporte a un
+  -- cliente concreto y permite comprobar que la cuenta era suya cuando lo
+  -- levantó, aunque después se le revoque.
+  assignment_id uuid        not null references public.profile_assignments (id) on delete cascade,
+  reported_by   uuid        not null references public.user_profiles (id)       on delete cascade,
+
+  reason        text        not null check (char_length(trim(reason)) between 5 and 1000),
+
+  -- Rutas dentro del bucket `reportes`. Varias porque un problema de streaming
+  -- casi siempre se explica con dos capturas: el error y la pantalla anterior.
+  screenshots   text[]      not null default '{}',
+
+  status        text        not null default 'pending'
+                            check (status in ('pending', 'resolved', 'rejected')),
+  resolution_note text,
+
+  created_at    timestamptz not null default now(),
+  resolved_at   timestamptz,
+  resolved_by   uuid        references public.user_profiles (id) on delete set null
+);
+
+-- La pantalla del operador lista lo pendiente por antigüedad.
+create index if not exists account_reports_pendientes
+  on public.account_reports (status, created_at desc);
+
+create index if not exists account_reports_por_cliente
+  on public.account_reports (reported_by);
+
+alter table public.account_reports enable row level security;
+
+-- -----------------------------------------------------------------------------
+-- Quién puede reportar
+-- -----------------------------------------------------------------------------
+-- No basta con `reported_by = current_user_id()`. Sin comprobar que la
+-- asignación es suya, un cliente podría abrir reportes sobre la cuenta de otro
+-- —bastaría con mandar otro `assignment_id`— y llenar la bandeja del operador de
+-- problemas inventados sobre cuentas ajenas.
+--
+-- A diferencia del cambio de PIN, aquí NO se exige que la asignación siga
+-- vigente: el caso más frecuente de reporte es justamente «se me venció y no
+-- entiendo por qué» o «dejó de funcionar». Exigir vigencia cerraría la puerta a
+-- quien más necesita escribir.
+-- -----------------------------------------------------------------------------
+drop policy if exists "clientes reportan sus propias cuentas" on public.account_reports;
+create policy "clientes reportan sus propias cuentas"
+  on public.account_reports for insert to authenticated
+  with check (
+    reported_by = public.current_user_id()
+    and exists (
+      select 1
+        from public.profile_assignments pa
+       where pa.id      = account_reports.assignment_id
+         and pa.user_id = public.current_user_id()
+    )
+  );
+
+drop policy if exists "clientes ven sus reportes" on public.account_reports;
+create policy "clientes ven sus reportes"
+  on public.account_reports for select to authenticated
+  using (reported_by = public.current_user_id() or public.is_admin());
+
+-- Sólo el operador resuelve. Un cliente que pudiera marcar su propio reporte
+-- como resuelto se auto-cerraría un problema que nadie miró.
+drop policy if exists "administradores gestionan reportes" on public.account_reports;
+create policy "administradores gestionan reportes"
+  on public.account_reports for all to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+comment on table public.account_reports is
+  'Problemas que reporta el cliente sobre una cuenta suya. El operador los resuelve desde Solicitudes.';
+
+-- -----------------------------------------------------------------------------
+-- Bucket de capturas
+-- -----------------------------------------------------------------------------
+-- Privado, como el de comprobantes: una captura de un problema puede llevar el
+-- correo de la cuenta, el nombre del perfil y a veces la pantalla de pago.
+-- -----------------------------------------------------------------------------
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'reportes',
+  'reportes',
+  false,
+  5242880,
+  array['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'application/pdf']
+)
+on conflict (id) do nothing;
+
+-- La primera carpeta de la ruta es el uuid interno del cliente, así que la ruta
+-- no es cosmética: es lo que comprueba la política.
+drop policy if exists "clientes suben sus capturas de reporte" on storage.objects;
+create policy "clientes suben sus capturas de reporte"
+  on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'reportes'
+    and (storage.foldername(name))[1] = public.current_user_id()::text
+  );
+
+drop policy if exists "clientes ven sus capturas de reporte" on storage.objects;
+create policy "clientes ven sus capturas de reporte"
+  on storage.objects for select to authenticated
+  using (
+    bucket_id = 'reportes'
+    and (
+      (storage.foldername(name))[1] = public.current_user_id()::text
+      or public.is_admin()
+    )
+  );
+
+
+
+-- ▼▼▼ 20260813002300_rebajo_por_invitacion.sql ▼▼▼
+
+-- =============================================================================
+-- 0024 · La recompensa pasa a ser un rebajo de ₡1000
+-- =============================================================================
+-- Antes la recompensa por invitar era un perfil gratis por 30 días. Se cambia
+-- por un rebajo de ₡1000 en la siguiente compra o renovación: es más barato de
+-- regalar, más fácil de explicar y no consume inventario vendible.
+--
+-- La decisión de aplicarlo **automáticamente** obliga a hacerlo donde nadie
+-- pueda saltárselo. Se hace con triggers sobre `orders` y no en las tres Server
+-- Actions que crean pedidos —compra directa, carrito y renovación— porque tres
+-- copias de la misma regla acaban divergiendo, y la que se olvide será la que
+-- cobre de más.
+-- =============================================================================
+
+alter table public.profile_rewards
+  add column if not exists discount_amount numeric(10,2) not null default 1000;
+
+comment on column public.profile_rewards.discount_amount is
+  'Colones que descuenta esta recompensa en la próxima compra o renovación.';
+
+-- Qué pedido consumió la recompensa. Sirve para devolverla si el pago se
+-- rechaza y para explicar por qué un pedido costó menos.
+alter table public.profile_rewards
+  add column if not exists redeemed_order_id uuid references public.orders (id) on delete set null;
+
+-- Cuánto se rebajó realmente en el pedido. Sin esto no habría forma de saber si
+-- un pedido de ₡3000 era el precio de lista o un ₡4000 con rebajo aplicado.
+alter table public.orders
+  add column if not exists discount_amount numeric(10,2) not null default 0;
+
+comment on column public.orders.discount_amount is
+  'Rebajo aplicado automáticamente desde las recompensas del cliente.';
+
+-- -----------------------------------------------------------------------------
+-- 1 · Aplicar el rebajo al crear el pedido
+-- -----------------------------------------------------------------------------
+-- BEFORE INSERT porque tiene que modificar el precio antes de guardarlo. El
+-- rebajo nunca deja el total por debajo de cero: si alguien acumulara más
+-- crédito que el precio, el resto se conserva para la próxima.
+-- -----------------------------------------------------------------------------
+create or replace function public.aplicar_rebajo_al_pedido()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_disponible numeric(10,2);
+  v_rebajo     numeric(10,2);
+begin
+  -- Los pedidos que nacen ya entregados (migraciones, cargas manuales) no pasan
+  -- por aquí: el rebajo es para lo que el cliente está a punto de pagar.
+  if new.status is distinct from 'esperando_comprobante' then
+    return new;
+  end if;
+
+  select coalesce(sum(discount_amount), 0)
+    into v_disponible
+    from public.profile_rewards
+   where user_id = new.user_id
+     and status  = 'available';
+
+  if v_disponible <= 0 then
+    return new;
+  end if;
+
+  v_rebajo := least(v_disponible, new.price_amount);
+
+  new.discount_amount := v_rebajo;
+  new.price_amount    := new.price_amount - v_rebajo;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists orders_aplicar_rebajo on public.orders;
+create trigger orders_aplicar_rebajo
+  before insert on public.orders
+  for each row execute function public.aplicar_rebajo_al_pedido();
+
+-- -----------------------------------------------------------------------------
+-- 2 · Marcar las recompensas como usadas
+-- -----------------------------------------------------------------------------
+-- AFTER INSERT y no en el trigger anterior porque hace falta el id del pedido,
+-- que en BEFORE todavía no existe.
+-- -----------------------------------------------------------------------------
+create or replace function public.consumir_rebajos()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_restante numeric(10,2);
+  v_fila     record;
+begin
+  if coalesce(new.discount_amount, 0) <= 0 then
+    return new;
+  end if;
+
+  v_restante := new.discount_amount;
+
+  -- Se consumen de la más antigua a la más nueva, y sólo las que caben en lo
+  -- que se rebajó: si el precio era menor que el crédito acumulado, las
+  -- sobrantes siguen disponibles.
+  for v_fila in
+    select id, discount_amount
+      from public.profile_rewards
+     where user_id = new.user_id
+       and status  = 'available'
+     order by created_at
+     for update
+  loop
+    exit when v_restante <= 0;
+
+    update public.profile_rewards
+       set status            = 'claimed',
+           claimed_at        = now(),
+           redeemed_order_id = new.id
+     where id = v_fila.id;
+
+    v_restante := v_restante - v_fila.discount_amount;
+  end loop;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists orders_consumir_rebajos on public.orders;
+create trigger orders_consumir_rebajos
+  after insert on public.orders
+  for each row execute function public.consumir_rebajos();
+
+-- -----------------------------------------------------------------------------
+-- 3 · Devolver el rebajo si el pedido no prospera
+-- -----------------------------------------------------------------------------
+-- Un pago rechazado o un pedido cancelado no deben costarle al cliente su
+-- recompensa. Sin esto, cargar una captura equivocada la quemaría para siempre.
+-- -----------------------------------------------------------------------------
+create or replace function public.devolver_rebajos()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if new.status in ('rechazado', 'cancelado')
+     and old.status not in ('rechazado', 'cancelado') then
+    update public.profile_rewards
+       set status            = 'available',
+           claimed_at        = null,
+           redeemed_order_id = null
+     where redeemed_order_id = new.id
+       and status = 'claimed';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists orders_devolver_rebajos on public.orders;
+create trigger orders_devolver_rebajos
+  after update on public.orders
+  for each row execute function public.devolver_rebajos();
+
+-- -----------------------------------------------------------------------------
+-- 4 · Las recompensas existentes pasan a ser rebajos
+-- -----------------------------------------------------------------------------
+-- El usuario confirmó que no hay ninguna sin reclamar, así que esto no debería
+-- tocar ninguna fila. Se deja igualmente para que la migración sea correcta en
+-- cualquier base donde sí las hubiera.
+-- -----------------------------------------------------------------------------
+update public.profile_rewards
+   set discount_amount = 1000
+ where status = 'available'
+   and discount_amount is distinct from 1000;
+

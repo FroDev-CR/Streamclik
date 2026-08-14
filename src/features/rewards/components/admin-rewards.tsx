@@ -63,7 +63,7 @@ export function AdminRewards({
                 <span className="font-semibold">
                   {reward.status === 'claimed'
                     ? (reward.serviceName ?? 'Perfil reclamado')
-                    : `Perfil de ${reward.durationDays} días`}
+                    : "₡1000 de rebajo"}
                 </span>
                 <Badge tone={reward.status === 'available' ? 'success' : 'neutral'}>
                   {reward.status === 'available'

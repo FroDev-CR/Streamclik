@@ -20,7 +20,7 @@ import type { PinChangeRequestStatusRow } from '../queries';
  * El cliente no puede cambiarlo por su cuenta: hacerlo exige entrar a Netflix
  * con las credenciales de la cuenta, y entregárselas anularía el aislamiento
  * entre los inquilinos que la comparten. Así que pide aquí, y el operador entra
- * y lo aplica desde la cola de `/admin/pines`.
+ * y lo aplica desde la cola de `/admin/solicitudes`.
  */
 
 const ESTADO: Record<PinChangeRequestStatusRow['status'], { etiqueta: string; tono: 'neutral' | 'success' | 'danger' }> = {

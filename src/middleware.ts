@@ -23,6 +23,7 @@ const esRutaPrivada = createRouteMatcher([
   '/carrito(.*)',
   '/historial(.*)',
   '/configuracion(.*)',
+  '/soporte(.*)',
   '/bienvenida(.*)',
 ]);
 

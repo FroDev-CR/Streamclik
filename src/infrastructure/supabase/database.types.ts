@@ -31,6 +31,7 @@ export type OrderStatusDb =
 export type RewardSourceDb = 'referral' | 'admin';
 export type RewardStatusDb = 'available' | 'claimed' | 'cancelled';
 export type PinChangeStatusDb = 'pending' | 'done' | 'rejected';
+export type ReportStatusDb = 'pending' | 'resolved' | 'rejected';
 
 /** Tablas sin columnas modificables por la API (sólo las escribe el webhook). */
 type NoUpdates = Record<string, never>;
@@ -739,6 +740,57 @@ export interface Database {
           {
             foreignKeyName: 'push_subscriptions_user_id_fkey';
             columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'user_profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+
+      account_reports: {
+        Row: {
+          id: string;
+          assignment_id: string;
+          reported_by: string;
+          reason: string;
+          screenshots: string[];
+          status: ReportStatusDb;
+          resolution_note: string | null;
+          created_at: string;
+          resolved_at: string | null;
+          resolved_by: string | null;
+        };
+        Insert: {
+          assignment_id: string;
+          reported_by: string;
+          reason: string;
+          screenshots?: string[];
+        };
+        Update: {
+          status?: ReportStatusDb;
+          resolution_note?: string | null;
+          screenshots?: string[];
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'account_reports_assignment_id_fkey';
+            columns: ['assignment_id'];
+            isOneToOne: false;
+            referencedRelation: 'profile_assignments';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'account_reports_reported_by_fkey';
+            columns: ['reported_by'];
+            isOneToOne: false;
+            referencedRelation: 'user_profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'account_reports_resolved_by_fkey';
+            columns: ['resolved_by'];
             isOneToOne: false;
             referencedRelation: 'user_profiles';
             referencedColumns: ['id'];

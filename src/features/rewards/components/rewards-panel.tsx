@@ -1,77 +1,39 @@
 'use client';
 
-import { useActionState, useState } from 'react';
-import { useFormStatus } from 'react-dom';
-import { Check, Copy, Gift, Sparkles, TicketCheck } from 'lucide-react';
+import { useState } from 'react';
+import { Check, Copy, Gift, TicketCheck } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label, Select } from '@/components/ui/input';
-import type { ActionState } from '@/features/shared/action-state';
 import { formatDateTime } from '@/lib/utils';
 
-import { reclamarRecompensaAction } from '../actions';
-import type { ProfileRewardRow, RewardServiceOption } from '../queries';
+import type { ProfileRewardRow } from '../queries';
 
-function ClaimButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" size="sm" disabled={pending}>
-      <Sparkles aria-hidden className="size-4" strokeWidth={2.5} />
-      {pending ? 'Activando…' : 'Reclamar perfil'}
-    </Button>
-  );
-}
-
-function AvailableReward({
-  reward,
-  services,
-}: {
-  reward: ProfileRewardRow;
-  services: RewardServiceOption[];
-}) {
-  const [state, formAction] = useActionState<ActionState, FormData>(reclamarRecompensaAction, {});
-
+/**
+ * Una recompensa disponible.
+ *
+ * Ya no hay nada que pulsar: el rebajo lo aplican los triggers de `orders` en
+ * cuanto el cliente crea su próxima compra o renovación. Antes había que elegir
+ * plataforma y reclamar un perfil gratis; ese paso desapareció con el cambio a
+ * ₡1000, y quitarlo es parte del cambio —un botón que ya no hace nada es peor
+ * que ninguno.
+ */
+function AvailableReward({ reward }: { reward: ProfileRewardRow }) {
   return (
     <li className="rounded-2xl border-2 border-[var(--color-border)] bg-[var(--color-brand-yellow)] p-4 shadow-[4px_4px_0_var(--color-border)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Badge tone="success">Disponible</Badge>
           <p className="mt-2 font-[family-name:var(--font-display)] text-lg font-black uppercase">
-            Un perfil por {reward.durationDays} días
+            ₡1000 de rebajo
           </p>
           <p className="mt-1 text-xs text-[var(--color-content-muted)]">
-            {reward.note ?? 'Elige la plataforma que quieres activar.'}
+            {reward.note ?? 'Se aplica solo en tu próxima compra o renovación.'}
           </p>
         </div>
         <Gift aria-hidden className="size-7" strokeWidth={2.5} />
       </div>
-
-      <form action={formAction} className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
-        <input type="hidden" name="rewardId" value={reward.id} />
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <Label htmlFor={`reward-service-${reward.id}`}>Plataforma</Label>
-          <Select id={`reward-service-${reward.id}`} name="serviceId" defaultValue="" required>
-            <option value="" disabled>
-              Elegir plataforma…
-            </option>
-            {services.map((service) => (
-              <option key={service.id} value={service.id}>
-                {service.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <ClaimButton />
-      </form>
-
-      {state.error && (
-        <p className="mt-2 text-xs font-semibold text-[var(--color-danger)]">{state.error}</p>
-      )}
-      {state.success && (
-        <p className="mt-2 text-xs font-semibold text-[var(--color-success)]">{state.success}</p>
-      )}
     </li>
   );
 }
@@ -79,11 +41,9 @@ function AvailableReward({
 export function RewardsPanel({
   referralCode,
   rewards,
-  services,
 }: {
   referralCode: string;
   rewards: ProfileRewardRow[];
-  services: RewardServiceOption[];
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -106,8 +66,8 @@ export function RewardsPanel({
         <CardHeader>
           <CardTitle>Código de invitación</CardTitle>
           <p className="text-sm text-[var(--color-content-muted)]">
-            Compártelo. Cuando otra persona lo use y aprobemos su compra, recibirás un perfil
-            gratis.
+            Compártelo. Cuando otra persona lo use y aprobemos su compra, recibirás ₡1000 de
+            rebajo en tu próxima compra o renovación.
           </p>
         </CardHeader>
         <CardContent>
@@ -159,13 +119,13 @@ export function RewardsPanel({
               Aún no tienes recompensas
             </p>
             <p className="max-w-sm text-sm text-[var(--color-content-muted)]">
-              Comparte tu código para ganar tu primer perfil.
+              Comparte tu código y gana ₡1000 de rebajo por cada persona que compre.
             </p>
           </Card>
         ) : (
           <ul className="mt-4 grid gap-4">
             {disponibles.map((reward) => (
-              <AvailableReward key={reward.id} reward={reward} services={services} />
+              <AvailableReward key={reward.id} reward={reward} />
             ))}
             {reclamadas.map((reward) => (
               <li
@@ -182,10 +142,10 @@ export function RewardsPanel({
                   <TicketCheck className="size-5" strokeWidth={2.5} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold">{reward.claimedServiceName ?? 'Perfil reclamado'}</p>
+                  <p className="font-semibold">₡1000 de rebajo</p>
                   <p className="text-xs text-[var(--color-content-muted)]">
-                    {reward.durationDays} días ·{' '}
-                    {reward.claimedAt ? formatDateTime(reward.claimedAt) : 'reclamada'}
+                    Aplicado{' '}
+                    {reward.claimedAt ? `el ${formatDateTime(reward.claimedAt)}` : 'en una compra'}
                   </p>
                 </div>
                 <Badge tone="neutral">Usada</Badge>

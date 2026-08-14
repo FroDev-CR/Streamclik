@@ -91,7 +91,7 @@ export async function solicitarCambioPinAction(
   }
 
   revalidatePath(`/cuenta/${parsed.data.accountId}`);
-  revalidatePath('/admin/pines');
+  revalidatePath('/admin/solicitudes');
 
   return { success: 'Solicitud enviada. Te avisamos cuando se aplique.' };
 }
@@ -133,7 +133,7 @@ export async function aplicarCambioPinAction(
     return { error: 'No se pudo aplicar el cambio. Inténtalo de nuevo.' };
   }
 
-  revalidatePath('/admin/pines');
+  revalidatePath('/admin/solicitudes');
   revalidatePath('/dashboard');
 
   return { success: 'PIN actualizado. El cliente ya lo verá en su panel.' };
@@ -189,7 +189,7 @@ export async function rechazarCambioPinAction(
     return { error: 'No se pudo rechazar la solicitud.' };
   }
 
-  revalidatePath('/admin/pines');
+  revalidatePath('/admin/solicitudes');
 
   return { success: 'Solicitud rechazada' };
 }
