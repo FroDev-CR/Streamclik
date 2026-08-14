@@ -8,7 +8,6 @@ import { EmailAddress } from '@/core/domain/value-objects/email-address';
 import { isPlatformIconKey } from '@/features/catalog/platform-icons';
 import { makeAssignProfileUseCase, makeRevokeAssignmentUseCase } from '@/infrastructure/container';
 import { getCredentialCipher } from '@/infrastructure/crypto/credential-cipher';
-import { createSupabaseAdminClient } from '@/infrastructure/supabase/admin';
 import { createSupabaseServerClient } from '@/infrastructure/supabase/server';
 import { requireAdmin } from '@/features/auth/session';
 import type { ActionState } from '@/features/shared/action-state';
@@ -543,36 +542,39 @@ export async function deleteClientAction(
     }
   }
 
-  // -------------------------------------------------------------------------
-  // El borrado va por el cliente administrativo, que omite RLS.
-  // -------------------------------------------------------------------------
-  // Con el cliente normal, un DELETE que las políticas no dejan pasar **no
-  // devuelve error**: Postgres borra cero filas y responde correctamente. Ese
-  // silencio era exactamente el síntoma —«le doy y le doy y no se borra»— y
-  // ninguna traza lo delataba, porque desde la aplicación todo parecía haber
-  // ido bien.
+  // El borrado va con el cliente normal, con RLS aplicando (ADR-0003): la
+  // política «administradores gestionan perfiles» ya lo autoriza. Durante un
+  // rato se sospechó que RLS lo estaba bloqueando en silencio y se probó con el
+  // cliente administrativo; era una pista falsa. Lo que fallaba de verdad era
+  // una clave foránea, y saltarse RLS no habría arreglado nada — sólo habría
+  // movido la frontera de autorización fuera de Postgres sin motivo.
   //
-  // Aquí la autorización ya está resuelta en TypeScript y de forma explícita:
-  // `requireAdmin()` arriba, el objetivo tiene rol `client` y no es uno mismo.
-  // Saltarse RLS con esas tres comprobaciones hechas es una operación
-  // administrativa, no un atajo: la alternativa era depender de que
-  // `is_admin()` se evaluara igual dentro de la petición, que es justo lo que
-  // no estaba ocurriendo.
-  const admin_db = createSupabaseAdminClient();
-
-  // `.select()` en el DELETE devuelve las filas borradas. Es la única forma de
-  // distinguir «borré una» de «no borré ninguna», que es la distinción que
-  // faltaba.
-  const { data: borradas, error } = await admin_db
+  // `.select()` sí se queda: devuelve las filas borradas, y sin eso no hay forma
+  // de distinguir «borré una» de «no borré ninguna». Un DELETE que no afecta a
+  // nada responde igual que uno que funciona.
+  const { data: borradas, error } = await supabase
     .from('user_profiles')
     .delete()
     .eq('id', clientId)
     .select('id');
 
   if (error) {
-    logger.error('No se pudo borrar el perfil', { clientId, error: error.message });
-    // El mensaje real de Postgres, no uno genérico: si algo lo impide —una
-    // clave foránea nueva, por ejemplo— es lo único que permite saber qué.
+    logger.error('No se pudo borrar el perfil', {
+      clientId,
+      code: error.code,
+      error: error.message,
+    });
+
+    // 23503 es una clave foránea que lo impide. Fue el fallo real durante toda
+    // la depuración —`order_assignments` estaba en `on delete restrict`— y el
+    // mensaje crudo de Postgres nombra la restricción exacta, que es lo único
+    // que permitió encontrarlo. Se muestra tal cual por eso mismo.
+    if (error.code === '23503') {
+      return {
+        error: `Hay datos que dependen de este cliente y lo impiden: ${error.message}`,
+      };
+    }
+
     return { error: `No se pudo borrar: ${error.message}` };
   }
 
