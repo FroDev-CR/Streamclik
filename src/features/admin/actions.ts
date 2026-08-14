@@ -8,6 +8,7 @@ import { EmailAddress } from '@/core/domain/value-objects/email-address';
 import { isPlatformIconKey } from '@/features/catalog/platform-icons';
 import { makeAssignProfileUseCase, makeRevokeAssignmentUseCase } from '@/infrastructure/container';
 import { getCredentialCipher } from '@/infrastructure/crypto/credential-cipher';
+import { createSupabaseAdminClient } from '@/infrastructure/supabase/admin';
 import { createSupabaseServerClient } from '@/infrastructure/supabase/server';
 import { requireAdmin } from '@/features/auth/session';
 import type { ActionState } from '@/features/shared/action-state';
@@ -542,31 +543,42 @@ export async function deleteClientAction(
     }
   }
 
-  const { error } = await supabase.from('user_profiles').delete().eq('id', clientId);
+  // -------------------------------------------------------------------------
+  // El borrado va por el cliente administrativo, que omite RLS.
+  // -------------------------------------------------------------------------
+  // Con el cliente normal, un DELETE que las políticas no dejan pasar **no
+  // devuelve error**: Postgres borra cero filas y responde correctamente. Ese
+  // silencio era exactamente el síntoma —«le doy y le doy y no se borra»— y
+  // ninguna traza lo delataba, porque desde la aplicación todo parecía haber
+  // ido bien.
+  //
+  // Aquí la autorización ya está resuelta en TypeScript y de forma explícita:
+  // `requireAdmin()` arriba, el objetivo tiene rol `client` y no es uno mismo.
+  // Saltarse RLS con esas tres comprobaciones hechas es una operación
+  // administrativa, no un atajo: la alternativa era depender de que
+  // `is_admin()` se evaluara igual dentro de la petición, que es justo lo que
+  // no estaba ocurriendo.
+  const admin_db = createSupabaseAdminClient();
+
+  // `.select()` en el DELETE devuelve las filas borradas. Es la única forma de
+  // distinguir «borré una» de «no borré ninguna», que es la distinción que
+  // faltaba.
+  const { data: borradas, error } = await admin_db
+    .from('user_profiles')
+    .delete()
+    .eq('id', clientId)
+    .select('id');
 
   if (error) {
     logger.error('No se pudo borrar el perfil', { clientId, error: error.message });
-    // Se devuelve el mensaje real de Postgres y no uno genérico: si algo lo
-    // impide —una clave foránea nueva, una política— es lo único que permite
-    // saber qué, en lugar de quedarse pulsando el botón.
+    // El mensaje real de Postgres, no uno genérico: si algo lo impide —una
+    // clave foránea nueva, por ejemplo— es lo único que permite saber qué.
     return { error: `No se pudo borrar: ${error.message}` };
   }
 
-  // Comprobación explícita de que la fila se fue. `delete()` sin `returning`
-  // responde igual cuando borra cero filas que cuando borra una, y ese silencio
-  // es exactamente el síntoma de «le doy y no pasa nada»: si RLS filtrara la
-  // fila, Postgres no devolvería error, sólo no borraría nada.
-  const { count: quedan } = await supabase
-    .from('user_profiles')
-    .select('id', { count: 'exact', head: true })
-    .eq('id', clientId);
-
-  if ((quedan ?? 0) > 0) {
+  if (!borradas || borradas.length === 0) {
     logger.error('El borrado no afectó a ninguna fila', { clientId });
-    return {
-      error:
-        'La base de datos no borró la fila y tampoco devolvió un error. Suele ser que tu usuario no tiene rol admin en user_profiles.',
-    };
+    return { error: 'La fila ya no existía o no se pudo borrar. Recarga la página.' };
   }
 
   // El registro sobrevive al borrado con `actor_id` intacto: quién limpió qué

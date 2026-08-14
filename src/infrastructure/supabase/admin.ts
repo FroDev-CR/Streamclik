@@ -16,6 +16,12 @@ import type { Database } from './database.types';
  *   2. El aviso de pago al operador
  *      (`src/infrastructure/notifications/admin-push.ts`), que lee las
  *      suscripciones push de los administradores.
+ *   3. El borrado de un cliente (`deleteClientAction`), que necesita que el
+ *      DELETE ocurra de verdad. Con el cliente normal, un borrado que las
+ *      políticas no dejan pasar **no da error**: borra cero filas y responde
+ *      correctamente, y ese silencio es indistinguible del éxito desde la
+ *      aplicación. La autorización se comprueba antes y de forma explícita en
+ *      TypeScript.
  *
  * El segundo caso merece explicación, porque a primera vista parece justo lo que
  * esta advertencia prohíbe: lo dispara la petición de un cliente. La diferencia
