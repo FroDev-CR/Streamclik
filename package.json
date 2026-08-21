@@ -18,6 +18,7 @@
     "db:push": "supabase db push",
     "db:types": "supabase gen types typescript --linked > src/infrastructure/supabase/database.types.ts",
     "diagnostico:correo": "node scripts/diagnostico-correo.mjs",
+    "diagnostico:goplay": "node scripts/diagnostico-goplay.mjs",
     "secretos": "node scripts/generate-secrets.mjs",
     "claves:push": "node scripts/generar-claves-vapid.mjs"
   },
