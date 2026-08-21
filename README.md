@@ -27,8 +27,9 @@ entrega instantánea al cliente que tiene ese perfil asignado.
 ## Documentación
 
 > **¿Retomas el proyecto o abres una sesión nueva con un agente?**
-> Empieza por **[`HANDOFF.md`](HANDOFF.md)**: estado actual, decisiones tomadas,
-> trampas ya resueltas y qué queda pendiente, en un solo documento.
+> Empieza por **[`CONTEXT.md`](CONTEXT.md)**: estado actual, decisiones tomadas,
+> trampas ya resueltas y qué queda pendiente, en un solo documento. Es el único
+> documento de contexto del proyecto; el resto de `docs/` es apoyo.
 
 Cada decisión técnica relevante está justificada por escrito:
 
@@ -168,22 +169,29 @@ node scripts/build-setup-sql.mjs    # regenera supabase/setup.sql
 
 ## Estado actual
 
-**Implementado**
+El estado detallado, con lo pendiente y la deuda técnica reconocida, vive en
+**[`CONTEXT.md`](CONTEXT.md)**. En resumen:
 
-- Autenticación completa: registro, login, recuperación, confirmación por correo.
-- RLS en todas las tablas, con aislamiento por asignación **y** por ventana temporal.
+**Funcionando en producción**
+
+- Autenticación con Clerk y RLS en todas las tablas, con aislamiento por
+  asignación **y** por ventana temporal.
 - Ingesta de correo idempotente con verificación de firma HMAC.
-- Parser de Netflix en español e inglés, con 29 tests en verde.
-- Entrega de PIN en tiempo real vía Supabase Realtime, con re-sincronización al reconectar.
-- Historial de códigos con fecha y hora.
-- Panel de administración: inventario de cuentas, perfiles y asignaciones.
+- Parsers de Netflix y Disney+, en español e inglés.
+- Entrega de PIN en tiempo real vía Supabase Realtime, con re-sincronización al
+  reconectar, e historial de códigos.
+- Tienda completa: catálogo público, combos, carrito, cobro por SINPE con
+  comprobante, entrega con un botón, renovaciones y referidos con rebajo.
+- Panel del operador: banco de cuentas, clientes, pagos, buzón de correos,
+  solicitudes de cambio de PIN, reportes, multimedia y visitas.
+- Aplicación instalable (PWA) con avisos push al operador cuando entra un pago.
 
-**Preparado pero no implementado**
+**Pendiente**
 
-- Canales WhatsApp, Telegram y push: el puerto `NotificationSender` y la tabla
-  `notification_outbox` existen y se rellenan; falta el worker que los consuma.
-- Parsers de Disney+ y Prime Video: el catálogo los contempla y quedan inactivos
-  hasta tener correos reales con los que escribir sus tests.
+- El worker que consuma `notification_outbox` (el puerto `NotificationSender` y
+  la tabla existen y se rellenan). Recomendado empezar por Telegram.
+- Parsers de Max y Prime Video: se venden en el catálogo y quedan inactivos hasta
+  tener correos reales con los que escribir sus tests.
 
 **Deuda técnica reconocida**
 
