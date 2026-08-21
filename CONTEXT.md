@@ -5,7 +5,7 @@
 > contradice al código, **manda el código**: este archivo se queda viejo, el
 > repositorio no.
 >
-> Última revisión: commit `ff9ba73` (PWA instalable).
+> Última revisión: commit `76f0c80` (contador de visitas).
 
 ---
 
@@ -50,6 +50,11 @@ Cualquiera revende cuentas; casi nadie automatiza el código.
 | Banco de cuentas, clientes, plataformas, combos | ✅ |
 | Biblioteca multimedia del operador | ✅ |
 | Instalable como app (PWA) en Android/iOS | ✅ |
+| Solicitudes de cambio de PIN | ✅ |
+| Reportes de cuenta (el cliente avisa de un problema) | ✅ |
+| Renovación de suscripciones | ✅ |
+| Aviso push al operador cuando entra un pago | ✅ |
+| Contador de visitas + Vercel Analytics | ✅ |
 
 ### NO funciona todavía (importante)
 
@@ -62,12 +67,14 @@ Cualquiera revende cuentas; casi nadie automatiza el código.
   **Para escribir un parser nuevo hace falta el texto de un correo real** de esa
   plataforma; se puede sacar del monitor de correos en `/admin/buzon`.
 - **No hay renovación automática.** Cobrar el mes siguiente es un pedido nuevo.
-- **No se avisa por WhatsApp automáticamente.** Se recoge el teléfono y el panel
-  ofrece un enlace `wa.me` para escribir a mano. `notification_outbox` se rellena
-  en cada ingesta pero **nadie la consume**.
+- **No se avisa por WhatsApp automáticamente, y se descartó a propósito.** Ver
+  `docs/11-avisos-de-pago.md`: el aviso al operador se resolvió con notificaciones
+  push (Web Push, cifrado de punta a punta), que no cuestan nada ni dependen de la
+  API de negocio de Meta. El panel sigue ofreciendo un enlace `wa.me` para escribir
+  a mano. `notification_outbox` se rellena en cada ingesta pero **nadie la consume**.
 - **No hay cron de caducidad.** `expire_due_assignments()` existe pero no está
   programada.
-- **No hay solicitud de cambio de PIN** desde el cliente.
+- **Los avisos push son sólo para el operador**, no para el cliente.
 
 ---
 
@@ -80,6 +87,9 @@ Cualquiera revende cuentas; casi nadie automatiza el código.
 - **Zod** para validación, **Vitest** para tests, **sonner** para toasts
 - **Cloudflare Email Routing + Email Worker** para el correo entrante
 - **Resend** para el correo de entrega (vía `fetch` a su API; no hay SDK instalado)
+- **Web Push (VAPID)** para avisar al operador, implementado a mano en el service
+  worker; no hay librería `web-push` instalada
+- **Vercel Web Analytics**, cargando el script del borde en vez del paquete
 - Node ≥ 20.11
 
 `next.config.ts` **rompe el build** ante errores de tipo o de lint, a propósito.
@@ -102,6 +112,8 @@ falla al arrancar con un mensaje que las lista.
 | `CREDENTIALS_ENCRYPTION_KEY` | AES-256-GCM, 64 caracteres hex |
 | `RESEND_API_KEY` | Opcional. Sin ella, la entrega avisa de que el correo quedó pendiente |
 | `RESEND_FROM_EMAIL` | Por defecto `cuentas@streamclick.xyz` |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Opcionales. Notificaciones push (`node scripts/generar-claves-vapid.mjs`) |
+| `VAPID_SUBJECT` | Por defecto `mailto:soporte@streamclick.xyz` |
 | `NEXT_PUBLIC_SITE_URL` | Enlaces absolutos en correos |
 
 > ⚠️ **Regla en vigor y no negociable:** los identificadores (Zone ID, Account ID,
@@ -124,16 +136,21 @@ src/
       dashboard/            # «Mis suscripciones» (cliente)
       perfil/               # Mi perfil + historial de compras + referidos
       carrito/  comprar/    # compra: carrito y checkout por slug o combo
+      renovar/[assignmentId]/  # renovar una suscripción que vence
+      soporte/              # reportar un problema y pedir cambio de PIN
       cuenta/[id]/          # detalle de una cuenta: PIN en vivo + credenciales
       admin/                # SÓLO operador
         page.tsx            #   Banco de cuentas
         buzon/              #   Monitor de correos entrantes
         pagos/              #   Cola de comprobantes + «Soltar cuenta»
+        solicitudes/        #   Cambios de PIN y reportes de cuenta
         clientes/           #   Clientes y recompensas
+        visitas/            #   Contador de visitas
         multimedia/         #   Biblioteca de artes (imágenes/vídeos)
         plataformas/        #   Plataformas, combos y datos de cobro
         nueva/              #   Alta de cuenta
     api/webhooks/inbound-email/   # ← Cloudflare Worker (HMAC, sin sesión)
+    api/visita/                   # registro de visitas (fuera del middleware)
     manifest.ts  sin-conexion/    # PWA
     page.tsx  catalogo/           # público
 
@@ -145,7 +162,8 @@ src/
     shared/                 # Result<T,E>, DomainError
 
   features/                 # módulos verticales de UI (queries + actions + components)
-    accounts/ admin/ auth/ cart/ catalog/ media/ orders/ pins/ rewards/ settings/
+    accounts/ admin/ analytics/ auth/ cart/ catalog/ media/ notifications/
+    orders/ pins/ reports/ rewards/ settings/
 
   infrastructure/
     supabase/               # server.ts · client.ts · admin.ts · public-client.ts
@@ -196,6 +214,10 @@ promo-imagenes/             # artes de publicidad generados
 | `inbound_emails` | Correo entrante íntegro. Idempotencia por `message_id` |
 | `verification_pins` | El producto final: el código |
 | `notification_outbox` | Patrón *outbox*. Se llena, nadie lo consume todavía |
+| `pin_change_requests` | El cliente pide cambiar el PIN de su perfil |
+| `account_reports` | El cliente avisa de un problema con su cuenta |
+| `push_subscriptions` | Suscripciones Web Push del operador |
+| `page_views` | Contador de visitas de la portada |
 | `audit_logs` | Quién vio qué PIN y quién entregó qué |
 
 ### Funciones de base de datos
@@ -205,6 +227,9 @@ promo-imagenes/             # artes de publicidad generados
 · `crear_pedido_carrito()` · `catalogo_publico()` · `combos_publicos()`
 · `resolve_referral_code()` · `reclamar_recompensa()` · `expire_due_assignments()`
 · `generate_referral_code()` + triggers de inmutabilidad del referido
+· `crear_renovacion()` · `aprobar_renovacion()` · `aplicar_cambio_pin()`
+· `aplicar_rebajo_al_pedido()` · `consumir_rebajos()` · `devolver_rebajos()`
+· `resumen_visitas()`
 
 ### Buckets de Storage (los dos privados)
 
@@ -286,12 +311,46 @@ Catálogo → carrito → /comprar → paga por SINPE desde su banco
 - Si el pago es correcto pero no hay stock, devuelve `sin_cupos` y el pedido
   espera. Ese caso hay que verlo, no esconderlo.
 
-### 7.4 Referidos
+### 7.4 Referidos y rebajos
 
 Cada cliente tiene un código propio (`user_profiles.referral_code`, inmutable por
 trigger). Se escribe al enviar el comprobante; `validate_order_referral()` lo
-comprueba. Al acumular la meta de compras entregadas, el cliente gana una
-recompensa en `profile_rewards` y la reclama con `reclamar_recompensa()`.
+comprueba y rechaza el auto-referido.
+
+La recompensa **ya no es un perfil regalado**: es un **rebajo de ₡1 000** en la
+siguiente compra o renovación (`profile_rewards.discount_amount`). Sale más
+barato que regalar un perfil entero y no consume inventario.
+
+`orders.discount_amount` guarda cuánto se rebajó en ese pedido concreto. Sin esa
+columna sería imposible saber después si un pedido de ₡3 000 era precio de lista
+o un ₡4 000 con rebajo aplicado. Los rebajos se reservan con `consumir_rebajos()`
+al crear el pedido y se devuelven con `devolver_rebajos()` si se rechaza.
+
+### 7.5 Renovación
+
+Una suscripción que se acerca al vencimiento muestra el botón de renovar dentro
+de `VENTANA_RENOVACION_DIAS`. Se renueva **la asignación**, no la cuenta:
+`crear_renovacion()` genera un pedido enlazado por `renewal_assignment_id` y
+`aprobar_renovacion()` amplía la fecha en vez de asignar un perfil nuevo.
+
+### 7.6 Soporte: cambio de PIN y reportes
+
+Desde `/soporte` el cliente pide cambiar el PIN de su perfil
+(`pin_change_requests`) o reporta un problema con su cuenta (`account_reports`).
+Las dos colas caen en `/admin/solicitudes`. `aplicar_cambio_pin()` escribe el PIN
+nuevo en el perfil y cierra la solicitud en una sola operación.
+
+### 7.7 Avisos push al operador
+
+Cuando entra un comprobante, el operador recibe una notificación en el teléfono.
+El contenido viaja **cifrado de punta a punta** (RFC 8291): ni Google ni Apple
+pueden leerlo. Los manejadores `push` y `notificationclick` viven en
+`public/sw.js`; las suscripciones, en `push_subscriptions`.
+
+Dos detalles que rompen esto si se tocan: `showNotification()` **debe** llamarse
+siempre que llega un push —si no, el navegador muestra un aviso genérico y acaba
+revocando el permiso— y al tocar la notificación se reutiliza una pestaña abierta
+en lugar de abrir otra.
 
 ---
 
@@ -461,6 +520,7 @@ args: ['--no-proxy-server', '--proxy-bypass-list=<-loopback>', '--ignore-certifi
 | `docs/09-desplegar-sin-terminal.md` | Desplegar el Worker desde el móvil |
 | `docs/10-flujo-de-compra.md` | SINPE, comprobantes y «Soltar cuenta» |
 | `docs/10-correo-de-entrega-resend.md` | Correo de credenciales |
+| `docs/11-avisos-de-pago.md` | Push al operador y **por qué se descartó WhatsApp** |
 | `docs/adr/0001…0009` | **Por qué** se tomó cada decisión |
 | `HANDOFF.md` | Traspaso anterior. Parcialmente desactualizado |
 
@@ -475,3 +535,5 @@ args: ['--no-proxy-server', '--proxy-bypass-list=<-loopback>', '--ignore-certifi
 3. ¿Coinciden los precios de la base de datos con los de las imágenes que se
    están publicando?
 4. ¿La plataforma en cuestión tiene parser, o sus códigos se reenvían a mano?
+5. ¿Están configuradas las claves VAPID? Sin ellas los avisos push no salen y no
+   hay ningún error visible.
