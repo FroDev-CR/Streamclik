@@ -12,6 +12,7 @@ import { SupabaseAssignmentRepository } from './repositories/supabase-assignment
 import { createSupabaseAdminClient } from './supabase/admin';
 import { createSupabaseServerClient } from './supabase/server';
 import { GoPlayCodeProvider } from './providers/goplay/goplay.provider';
+import { GoPlayClient, type GoPlayClientOptions } from './providers/goplay/goplay.client';
 import { getServerEnv } from '@/lib/env';
 
 /**
@@ -67,10 +68,10 @@ export async function makeRevokeAssignmentUseCase(): Promise<RevokeAssignmentUse
  * La autorización de "¿es tuya esta cuenta?" ocurre antes, en la Server Action,
  * leyendo con el cliente con sesión: ahí sí manda RLS.
  */
-export function makeRequestGoPlayCodeUseCase(): RequestProviderCodeUseCase {
+function opcionesDeGoPlay(): GoPlayClientOptions {
   const env = getServerEnv();
 
-  const provider = new GoPlayCodeProvider({
+  return {
     baseUrl: env.GOPLAY_BASE_URL,
     origin: env.GOPLAY_ORIGIN,
     token: env.GOPLAY_TOKEN ?? null,
@@ -79,7 +80,31 @@ export function makeRequestGoPlayCodeUseCase(): RequestProviderCodeUseCase {
         ? { email: env.GOPLAY_EMAIL, password: env.GOPLAY_PASSWORD }
         : null,
     logger,
-  });
+  };
+}
 
-  return new RequestProviderCodeUseCase(provider, makeProcessInboundEmailUseCase(), logger);
+export function makeRequestGoPlayCodeUseCase(): RequestProviderCodeUseCase {
+  return new RequestProviderCodeUseCase(
+    new GoPlayCodeProvider(opcionesDeGoPlay()),
+    makeProcessInboundEmailUseCase(),
+    logger,
+  );
+}
+
+/**
+ * Cliente crudo de GoPlay, para el panel del operador.
+ *
+ * El caso de uso de arriba resuelve «dame el código de este perfil»; esto es
+ * otra cosa: leer el inventario comprado para poder darlo de alta. No se envuelve
+ * en un caso de uso porque no hay ninguna regla de negocio que envolver, y un
+ * caso de uso que sólo reenvía sería la indirección que ADR-0006 evita.
+ */
+export function makeGoPlayClient(): GoPlayClient {
+  return new GoPlayClient(opcionesDeGoPlay());
+}
+
+/** Si falta la configuración, el panel lo dice en vez de fallar con un 401. */
+export function goPlayEstaConfigurado(): boolean {
+  const env = getServerEnv();
+  return Boolean(env.GOPLAY_TOKEN ?? (env.GOPLAY_EMAIL && env.GOPLAY_PASSWORD));
 }

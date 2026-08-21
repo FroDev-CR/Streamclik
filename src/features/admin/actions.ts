@@ -6,11 +6,16 @@ import { z } from 'zod';
 
 import { EmailAddress } from '@/core/domain/value-objects/email-address';
 import { isPlatformIconKey } from '@/features/catalog/platform-icons';
-import { makeAssignProfileUseCase, makeRevokeAssignmentUseCase } from '@/infrastructure/container';
+import {
+  makeAssignProfileUseCase,
+  makeGoPlayClient,
+  makeRevokeAssignmentUseCase,
+} from '@/infrastructure/container';
 import { getCredentialCipher } from '@/infrastructure/crypto/credential-cipher';
 import { createSupabaseServerClient } from '@/infrastructure/supabase/server';
 import { requireAdmin } from '@/features/auth/session';
 import type { ActionState } from '@/features/shared/action-state';
+import { mapGoPlayProfiles } from '@/infrastructure/providers/goplay/goplay.profiles';
 import { logger } from '@/lib/logger';
 
 /**
@@ -1115,4 +1120,127 @@ export async function toggleComboAction(formData: FormData): Promise<void> {
   revalidatePath('/admin/plataformas');
   revalidatePath('/catalogo');
   revalidatePath('/');
+}
+
+// -----------------------------------------------------------------------------
+// Importar del proveedor
+// -----------------------------------------------------------------------------
+
+const importarSchema = z.object({
+  providerProfileId: z.string().trim().min(1, 'Falta el identificador del proveedor'),
+  serviceId: z.string().uuid('Selecciona un servicio válido'),
+  label: z.string().trim().min(2, 'Ponle un nombre a la cuenta').max(80),
+  maxProfiles: z.coerce.number().int().min(1).max(10),
+});
+
+/**
+ * Dar de alta una cuenta comprada en GoPlay.
+ *
+ * Del formulario sólo se aceptan cuatro cosas: cuál importar, a qué servicio de
+ * nuestro catálogo pertenece, cómo llamarla y cuántos perfiles tiene. **El
+ * correo y la contraseña se releen de GoPlay**, nunca del formulario. No es
+ * ceremonia: una Server Action es un endpoint POST público, y aceptar
+ * credenciales por ahí permitiría escribir en el banco unas que no son las que
+ * el proveedor tiene.
+ *
+ * El correo de la cuenta se guarda a la vez como `login_email` y como
+ * `inbox_email`. El segundo es el que importa: es la llave con la que el RPC de
+ * ingesta resuelve la cuenta cuando llega el código.
+ */
+export async function importarDeGoPlayAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const admin = await requireAdmin();
+
+  const parsed = importarSchema.safeParse({
+    providerProfileId: formData.get('providerProfileId'),
+    serviceId: formData.get('serviceId'),
+    label: formData.get('label'),
+    maxProfiles: formData.get('maxProfiles'),
+  });
+
+  if (!parsed.success) {
+    return { fieldErrors: toFieldErrors(parsed.error.issues) };
+  }
+
+  const inventario = await makeGoPlayClient().listProfiles();
+  if (!inventario.ok) {
+    return { error: `No se pudo leer el inventario de GoPlay: ${inventario.error.message}` };
+  }
+
+  const cuentas = mapGoPlayProfiles(inventario.value);
+  if (!cuentas.ok) {
+    return { error: cuentas.error.message };
+  }
+
+  const cuenta = cuentas.value.find((fila) => fila.id === parsed.data.providerProfileId);
+  if (!cuenta) {
+    return { error: 'Esa cuenta ya no aparece en tu inventario de GoPlay.' };
+  }
+
+  if (!cuenta.password) {
+    return {
+      error:
+        'GoPlay no devolvió la contraseña de esa cuenta. Cópiala desde su panel y créala a mano.',
+    };
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  const { data: creada, error } = await supabase
+    .from('streaming_accounts')
+    .insert({
+      service_id: parsed.data.serviceId,
+      owner_id: admin.id,
+      label: parsed.data.label,
+      inbox_email: EmailAddress.normalizeForRouting(cuenta.correo),
+      login_email: cuenta.correo,
+      login_password_enc: getCredentialCipher().encrypt(cuenta.password),
+      max_profiles: parsed.data.maxProfiles,
+      code_provider: 'goplay',
+      provider_profile_id: cuenta.id,
+    })
+    .select('id')
+    .single();
+
+  if (error) {
+    // El índice único sobre inbox_email es lo que impide importar dos veces la
+    // misma cuenta, y es mejor barrera que comprobarlo antes: dos pulsaciones
+    // simultáneas pasarían las dos un SELECT previo.
+    if (error.code === '23505') {
+      return { error: 'Esa cuenta ya está en el banco.' };
+    }
+    logger.error('Fallo al importar una cuenta de GoPlay', {
+      providerProfileId: cuenta.id,
+      error: error.message,
+    });
+    return { error: 'No se pudo crear la cuenta' };
+  }
+
+  // El PIN que devuelve GoPlay es el del perfil que ellos numeran; se aplica al
+  // primer slot y los demás quedan sin PIN, como en el alta manual.
+  const perfiles = Array.from({ length: parsed.data.maxProfiles }, (_, index) => ({
+    account_id: creada.id,
+    label: `Perfil ${index + 1}`,
+    profile_pin: index === 0 && cuenta.pin && /^[0-9]{4}$/.test(cuenta.pin) ? cuenta.pin : null,
+    slot_index: index + 1,
+  }));
+
+  const { error: errorPerfiles } = await supabase.from('account_profiles').insert(perfiles);
+
+  if (errorPerfiles) {
+    logger.error('Cuenta importada pero fallaron los perfiles', {
+      accountId: creada.id,
+      error: errorPerfiles.message,
+    });
+    return { error: 'La cuenta se importó, pero no se pudieron generar sus perfiles' };
+  }
+
+  revalidatePath('/admin');
+  revalidatePath('/admin/goplay');
+
+  return {
+    success: `"${parsed.data.label}" importada con ${parsed.data.maxProfiles} perfiles. Sus códigos ya se pueden pedir desde la app.`,
+  };
 }

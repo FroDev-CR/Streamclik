@@ -104,6 +104,46 @@ export class GoPlayClient {
     };
   }
 
+  /**
+   * Lista las cuentas compradas en GoPlay.
+   *
+   * Devuelve el cuerpo **crudo**: interpretarlo es cosa de `mapGoPlayProfiles`,
+   * que es puro y se prueba sin red. Se pide una página grande de una vez porque
+   * el inventario de un revendedor se cuenta por decenas, no por miles, y
+   * paginar añadiría estado a cambio de nada.
+   */
+  async listProfiles(maxRows = 200): Promise<Result<unknown, DomainError>> {
+    const token = await this.obtenerToken();
+    if (!token.ok) return token;
+
+    const params = encodeURIComponent(
+      JSON.stringify({ _paginate: { page: 1, max_rows: maxRows }, _order: null }),
+    );
+
+    let respuesta: Response;
+    try {
+      respuesta = await this.fetchImpl(`${this.baseUrl}/api/v1/profiles?params=${params}`, {
+        headers: this.cabeceras({ Authorization: `Bearer ${token.value}` }),
+      });
+    } catch (cause) {
+      return err(DomainError.infrastructure('No se pudo contactar con GoPlay', cause));
+    }
+
+    if (respuesta.status === 401 || respuesta.status === 403) {
+      return err(DomainError.unauthorized('GoPlay rechazó el token'));
+    }
+
+    if (!respuesta.ok) {
+      return err(DomainError.infrastructure(`GoPlay respondió ${respuesta.status} al listar cuentas`));
+    }
+
+    try {
+      return ok(await respuesta.json());
+    } catch (cause) {
+      return err(DomainError.infrastructure('GoPlay devolvió un listado ilegible', cause));
+    }
+  }
+
   async checkEmails(providerProfileId: string): Promise<Result<unknown, DomainError>> {
     const token = await this.obtenerToken();
 

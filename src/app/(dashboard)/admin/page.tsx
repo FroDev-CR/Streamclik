@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { AlertTriangle, Boxes, Plus, Sparkles, UserCheck } from 'lucide-react';
+import { AlertTriangle, Boxes, CloudDownload, Plus, Sparkles, UserCheck } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { requireAdmin } from '@/features/auth/session';
@@ -87,12 +87,26 @@ export default async function AdminPage() {
           </p>
         </div>
 
-        <Link href="/admin/nueva">
-          <Button size="lg">
-            <Plus aria-hidden className="size-4" strokeWidth={3} />
-            Añadir cuenta
-          </Button>
-        </Link>
+        {/*
+          Dos vías de alta a propósito: importar es el camino normal cuando la
+          cuenta viene de un proveedor —trae correo, contraseña y renovación ya
+          hechos— y el alta manual queda para las cuentas propias.
+        */}
+        <div className="flex flex-wrap gap-2">
+          <Link href="/admin/goplay">
+            <Button size="lg" variant="secondary">
+              <CloudDownload aria-hidden className="size-4" strokeWidth={3} />
+              Importar de GoPlay
+            </Button>
+          </Link>
+
+          <Link href="/admin/nueva">
+            <Button size="lg">
+              <Plus aria-hidden className="size-4" strokeWidth={3} />
+              Añadir cuenta
+            </Button>
+          </Link>
+        </div>
       </header>
 
       {fallos.length > 0 && (

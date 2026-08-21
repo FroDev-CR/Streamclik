@@ -225,26 +225,43 @@ Tres decisiones que sostienen esto:
   sólo después se usa el cliente administrativo, que omite RLS, para leer el
   identificador del proveedor. Invertir el orden sería una fuga.
 
-## 7 · Conectar una cuenta
+## 7 · Dar de alta una cuenta
 
-El `provider_profile_id` sale de `npm run diagnostico:goplay`. El `inbox_email`
-es la «Cuenta Digital» que muestra su panel.
+Desde **`/admin` → «Importar de GoPlay»**. La pantalla lee su inventario y
+muestra lo que tenés comprado allá, marcando lo que ya está en el banco. Al
+importar se crea la cuenta entera: correo, contraseña cifrada, perfiles, fecha de
+renovación y el `provider_profile_id` ya conectado.
+
+Dos cosas que la pantalla hace a propósito:
+
+- **El servicio se deduce del nombre del producto, pero se puede cambiar.** La
+  deducción es por palabra clave («DISNEY», «NETFLIX») porque el nombre lleva
+  coletillas que cambian con cada promoción. Cuando no lo reconoce, no adivina:
+  pide que el operador elija. Meter una cuenta de Disney en el catálogo de
+  Netflix no se descubre hasta que un cliente se queda sin código.
+- **El correo y la contraseña se releen de GoPlay al importar**, nunca del
+  formulario. Una Server Action es un endpoint POST público: aceptar credenciales
+  por ahí permitiría escribir en el banco unas que no son las del proveedor.
+
+El `inbox_email` se rellena con el correo de la cuenta, que es la llave con la
+que el RPC de ingesta la resuelve cuando llega el código.
+
+Para una cuenta que ya existía en el banco antes de esta pantalla, el SQL
+equivalente es:
 
 ```sql
 update public.streaming_accounts
    set code_provider       = 'goplay',
        provider_profile_id = '69e1f7d0-6baa-49e3-a1e6-fead03e1000e',
-       inbox_email         = 'disney2premiun2276@yaihoo.co'
+       inbox_email         = 'correo-de-la-cuenta@proveedor.com'
  where label = 'Disney 01';
 ```
 
-En cuanto esa fila queda así, la pantalla del cliente muestra el botón.
-
 ## 8 · Qué falta
 
-- **El campo en `/admin`.** Hoy la conexión se hace por SQL. Lo natural es un par
-  de campos en el formulario de la cuenta, para no depender del editor de
-  Supabase.
+- **Sincronizar, no sólo importar.** Hoy la pantalla da de alta lo que falta.
+  Detectar que una fecha de renovación cambió, o que una cuenta desapareció del
+  inventario, sigue siendo manual.
 - **Renovar el token entre instancias.** Cada arranque en frío de Vercel hace un
   login nuevo. Es asumible, pero si el volumen crece conviene cachearlo fuera del
   proceso.
