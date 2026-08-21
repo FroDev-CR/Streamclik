@@ -69,6 +69,24 @@ const serverSchema = z.object({
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_SUBJECT: z.string().default('mailto:soporte@streamclick.xyz'),
 
+  /**
+   * Acceso a GoPlay, el proveedor de las cuentas de Disney+.
+   *
+   * Todo opcional a propósito: sin estas variables la aplicación arranca igual y
+   * lo único que no funciona es pedir el código de una cuenta de ese proveedor,
+   * que además lo dice en pantalla. Tumbar el arranque entero por una
+   * integración de un solo servicio sería desproporcionado.
+   *
+   * `GOPLAY_TOKEN` es la vía de escape para cuando el login automático no sea
+   * posible —por ejemplo si se activa Google Authenticator en la cuenta—: se
+   * pega un token vigente y el cliente lo usa sin intentar iniciar sesión.
+   * Ver `docs/12-codigos-de-goplay.md`.
+   */
+  GOPLAY_BASE_URL: z.string().url().default('https://api.goplay.com.co'),
+  GOPLAY_EMAIL: z.string().email('GOPLAY_EMAIL debe ser un correo válido').optional(),
+  GOPLAY_PASSWORD: z.string().min(1).optional(),
+  GOPLAY_TOKEN: z.string().min(10).optional(),
+
   NEXT_PUBLIC_SITE_URL: z.string().url().default('http://localhost:3000'),
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
 });

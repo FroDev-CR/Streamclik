@@ -15,6 +15,14 @@ const CODE = String.raw`(\d(?:[ \-–—]?\d){5})`;
  * Disney envía el código en una línea aislada dentro de una tabla HTML. La
  * regla contextual cubre las variantes de texto; la regla de línea aislada
  * evita confundirlo con direcciones postales y años del pie del correo.
+ *
+ * ⚠️ Los correos que llegan a través de GoPlay vienen **sin acentos ni eñes**, y
+ * no sustituidos sino *comidos*: el correo real dice «Tu cdigo de acceso nico».
+ * Por eso cada patrón en español escribe la vocal acentuada como opcional
+ * (`c[óo]?digo`, `verificaci[óo]?n`). Sin eso, las reglas contextuales no casan
+ * nunca y el parser depende por completo de la regla de línea aislada — que hoy
+ * funciona, pero se rompería en silencio el día que Disney meta el código
+ * dentro de una frase. Ver `docs/12-codigos-de-goplay.md`.
  */
 const PATTERNS: readonly PatternRule[] = [
   {
@@ -27,13 +35,27 @@ const PATTERNS: readonly PatternRule[] = [
   {
     name: 'codigo-etiquetado-es',
     regex: new RegExp(
-      String.raw`(?:c[óo]digo\s+de\s+un\s+solo\s+uso|c[óo]digo\s+de\s+verificaci[óo]n|c[óo]digo\s+de\s+seguridad)[^\d]{0,120}${CODE}`,
+      String.raw`c[óo]?digo\s+de\s+(?:acceso|un\s+solo\s+uso|verificaci[óo]?n|seguridad)[^\d]{0,120}${CODE}`,
       'i',
     ),
   },
   {
     name: 'codigo-6-digitos-en-linea',
     regex: /(?:^|\n)\s*(\d{6})\s*(?:$|\n)/,
+  },
+  /**
+   * Último recurso: el correo habla de un código y en algún punto cercano hay
+   * seis dígitos seguidos.
+   *
+   * Va deliberadamente **después** de la regla de línea aislada, y no antes: es
+   * la más permisiva de todas y sólo debe entrar cuando ninguna otra ha casado.
+   * El salto puede atravesar cifras cortas —«vence en 15 minutos» va justo
+   * antes del código en el correo real— que las reglas con `[^\d]` no pueden
+   * cruzar. Se acota a 240 caracteres para que no alcance el pie del mensaje.
+   */
+  {
+    name: 'codigo-etiquetado-laxo',
+    regex: /c[óo]?digo[\s\S]{0,240}?(\d{6})/i,
   },
 ];
 
@@ -48,7 +70,7 @@ const TYPE_RULES: ReadonlyArray<{ type: PinCodeType; regex: RegExp }> = [
   },
   {
     type: 'login',
-    regex: /(?:one[- ]time\s+passcode|sign[- ]?in|iniciar\s+sesi[óo]n|c[óo]digo\s+de\s+acceso)/i,
+    regex: /(?:one[- ]time\s+passcode|sign[- ]?in|iniciar\s+sesi[óo]?n|c[óo]?digo\s+de\s+acceso)/i,
   },
 ];
 

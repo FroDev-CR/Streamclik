@@ -80,4 +80,68 @@ describe('DisneyPlusEmailParser', () => {
   it('rechaza remitentes ajenos aunque imiten el asunto', () => {
     expect(parser.canHandle(disneyEmail({ from: 'fraude@ofertas.example.com' }))).toBe(false);
   });
+  /**
+   * Los correos que llegan por GoPlay pierden todos los caracteres no ASCII: no
+   * los sustituyen, se los comen. El correo real dice «Tu cdigo de acceso nico».
+   * Estos casos existen para que nadie "limpie" los patrones quitando la vocal
+   * opcional creyendo que sobra.
+   */
+  describe('correos sin acentos (vía GoPlay)', () => {
+    it('extrae el código con el texto mutilado y el número en su propia línea', () => {
+      const result = parser.parse(
+        disneyEmail({
+          subject: 'Tu cdigo de acceso nico para Disney+',
+          text: null,
+          html: `
+            <table>
+              <tr><td>Tu cdigo de acceso nico para Disney+</td></tr>
+              <tr><td>Es necesario que verifiques la direccin de correo electrnico asociada a tu cuenta de MyDisney con este cdigo de acceso que vencer en 15 minutos.</td></tr>
+              <tr><td>314159</td></tr>
+              <tr><td>Si no lo solicitaste, en el Centro de ayuda hay ms informacin.</td></tr>
+            </table>
+          `,
+        }),
+      );
+
+      expect(result?.code).toBe('314159');
+    });
+
+    it('lo extrae también si el código va dentro de la frase', () => {
+      // Es el escenario que hoy NO se da y que dejaría al parser sin nada si la
+      // única regla fuese la de línea aislada.
+      const result = parser.parse(
+        disneyEmail({
+          subject: 'Tu cdigo de acceso nico para Disney+',
+          text: 'Tu cdigo de acceso nico es 314159 y vence en 15 minutos.',
+          html: null,
+        }),
+      );
+
+      expect(result?.code).toBe('314159');
+    });
+
+    it('clasifica como inicio de sesión pese a los acentos comidos', () => {
+      const result = parser.parse(
+        disneyEmail({
+          subject: 'Tu cdigo de acceso nico para Disney+',
+          text: 'Tu cdigo de acceso nico es 314159.',
+          html: null,
+        }),
+      );
+
+      expect(result?.codeType).toBe('login');
+    });
+
+    it('sigue sin inventarse un código cuando no lo hay', () => {
+      const result = parser.parse(
+        disneyEmail({
+          subject: 'Se ha modificado tu cuenta MyDisney',
+          text: 'La direccin de correo electrnico de tu cuenta se cambi correctamente el 2026.',
+          html: null,
+        }),
+      );
+
+      expect(result).toBeNull();
+    });
+  });
 });
