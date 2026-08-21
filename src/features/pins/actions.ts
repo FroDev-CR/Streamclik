@@ -4,6 +4,9 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
 import { createSupabaseServerClient } from '@/infrastructure/supabase/server';
+import { createSupabaseAdminClient } from '@/infrastructure/supabase/admin';
+import { makeRequestGoPlayCodeUseCase } from '@/infrastructure/container';
+import { rateLimit } from '@/lib/rate-limit';
 import { requireAdmin, requireUser } from '@/features/auth/session';
 import type { ActionState } from '@/features/shared/action-state';
 import { toFieldErrors } from '@/features/shared/action-state';
@@ -192,4 +195,115 @@ export async function rechazarCambioPinAction(
   revalidatePath('/admin/solicitudes');
 
   return { success: 'Solicitud rechazada' };
+}
+
+// -----------------------------------------------------------------------------
+// Códigos de proveedores externos
+// -----------------------------------------------------------------------------
+
+/**
+ * Desenlace de pedir un código. Es un tipo cerrado y no un `ActionState` con
+ * texto libre porque cada caso necesita un mensaje distinto en pantalla, y el
+ * componente decide la redacción: la acción sólo dice qué pasó.
+ */
+export type ResultadoCodigo =
+  | { estado: 'entregado'; codigos: number }
+  | { estado: 'sin-correo' }
+  | { estado: 'ya-leido' }
+  | { estado: 'espera'; segundos: number }
+  | { estado: 'error'; mensaje: string };
+
+/**
+ * Pedirle al proveedor el código de una cuenta propia.
+ *
+ * Sólo aplica a las cuentas cuyo buzón es de un tercero (hoy, GoPlay). Las de
+ * buzón propio no tienen nada que pedir: el correo llega solo por el webhook.
+ *
+ * La autorización va en dos pasos y el orden importa. Primero se lee
+ * `v_my_accounts` con el cliente **con sesión**, donde RLS decide: si la cuenta
+ * no es del usuario, no hay fila y aquí se acaba. Sólo después se usa el cliente
+ * administrativo para leer el identificador del proveedor, que vive en
+ * `streaming_accounts` —una tabla que el cliente no puede leer, y está bien que
+ * no pueda, porque contiene credenciales—.
+ */
+export async function pedirCodigoAction(accountId: string): Promise<ResultadoCodigo> {
+  const user = await requireUser();
+
+  if (!z.string().uuid().safeParse(accountId).success) {
+    return { estado: 'error', mensaje: 'Cuenta no válida' };
+  }
+
+  // El proveedor entrega cada correo una sola vez, así que pulsar sin parar no
+  // acelera nada y sí consume su API. El límite es por usuario y cuenta.
+  const limite = rateLimit(`codigo-proveedor:${user.id}:${accountId}`, 6, 60_000);
+  if (!limite.allowed) {
+    return { estado: 'espera', segundos: limite.retryAfterSeconds };
+  }
+
+  const supabase = await createSupabaseServerClient();
+
+  const { data: asignada, error: errorAsignada } = await supabase
+    .from('v_my_accounts')
+    .select('account_id, code_provider')
+    .eq('account_id', accountId)
+    .eq('user_id', user.id)
+    .eq('assignment_status', 'active')
+    .maybeSingle();
+
+  if (errorAsignada) {
+    logger.error('No se pudo comprobar la asignación al pedir el código', {
+      accountId,
+      error: errorAsignada.message,
+    });
+    return { estado: 'error', mensaje: 'No se pudo comprobar tu cuenta. Probá de nuevo.' };
+  }
+
+  if (!asignada) {
+    return { estado: 'error', mensaje: 'Esta cuenta no está asignada a tu usuario.' };
+  }
+
+  if (asignada.code_provider !== 'goplay') {
+    return {
+      estado: 'error',
+      mensaje: 'Los códigos de esta cuenta llegan solos: no hay nada que pedir.',
+    };
+  }
+
+  const admin = createSupabaseAdminClient();
+  const { data: cuenta, error: errorCuenta } = await admin
+    .from('streaming_accounts')
+    .select('inbox_email, provider_profile_id')
+    .eq('id', accountId)
+    .maybeSingle();
+
+  if (errorCuenta || !cuenta?.provider_profile_id) {
+    logger.error('Cuenta de proveedor sin configurar', {
+      accountId,
+      error: errorCuenta?.message ?? 'falta provider_profile_id',
+    });
+    return {
+      estado: 'error',
+      mensaje: 'Esta cuenta todavía no está conectada con el proveedor. Avisá al soporte.',
+    };
+  }
+
+  const useCase = makeRequestGoPlayCodeUseCase();
+  const resultado = await useCase.execute({
+    providerProfileId: cuenta.provider_profile_id,
+    inboxEmail: cuenta.inbox_email,
+  });
+
+  if (!resultado.ok) {
+    return { estado: 'error', mensaje: resultado.error.message };
+  }
+
+  if (resultado.value.correos === 0) {
+    return resultado.value.motivo === 'ya-leido' ? { estado: 'ya-leido' } : { estado: 'sin-correo' };
+  }
+
+  // El PIN entra por Realtime, pero se revalida igualmente: si la suscripción se
+  // cayó, al recargar la pantalla el código ya está.
+  revalidatePath(`/cuenta/${accountId}`);
+
+  return { estado: 'entregado', codigos: resultado.value.codigos };
 }

@@ -1,10 +1,10 @@
-import type { CodeProvider, ProviderEmail } from '@/core/ports/code-provider';
+import type { CodeProvider, ProviderFetchResult } from '@/core/ports/code-provider';
 import type { Logger } from '@/core/ports/logger';
 import type { DomainError } from '@/core/shared/errors';
-import { flatMap, type Result } from '@/core/shared/result';
+import { ok, type Result } from '@/core/shared/result';
 
 import { GoPlayClient, type GoPlayClientOptions } from './goplay.client';
-import { mapGoPlayResponse } from './goplay.mapper';
+import { mapGoPlayResponse, motivoSinCodigo } from './goplay.mapper';
 
 /**
  * Proveedor de códigos de GoPlay.
@@ -24,9 +24,7 @@ export class GoPlayCodeProvider implements CodeProvider {
     this.logger = options.logger ?? null;
   }
 
-  async fetchEmails(
-    providerProfileId: string,
-  ): Promise<Result<readonly ProviderEmail[], DomainError>> {
+  async fetchEmails(providerProfileId: string): Promise<Result<ProviderFetchResult, DomainError>> {
     const respuesta = await this.client.checkEmails(providerProfileId);
 
     if (!respuesta.ok) {
@@ -35,8 +33,18 @@ export class GoPlayCodeProvider implements CodeProvider {
         code: respuesta.error.code,
         message: respuesta.error.message,
       });
+      return respuesta;
     }
 
-    return flatMap(respuesta, mapGoPlayResponse);
+    const correos = mapGoPlayResponse(respuesta.value);
+    if (!correos.ok) return correos;
+
+    // El motivo se calcula aquí y no en el mapeador porque quien lo sabe es el
+    // cuerpo crudo de la respuesta, que a partir del mapeo ya se ha perdido.
+    const motivo = correos.value.length > 0 ? null : motivoSinCodigo(respuesta.value);
+
+    if (motivo) this.logger?.info('goplay: sin código', { providerProfileId, motivo });
+
+    return ok({ emails: correos.value, motivo });
   }
 }

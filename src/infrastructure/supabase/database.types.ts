@@ -21,6 +21,14 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 
 export type UserRole = 'admin' | 'client';
 export type AccountStatus = 'active' | 'suspended' | 'expired';
+
+/**
+ * De dónde llega el código de una cuenta.
+ *
+ * `propio`: el correo entra por nuestro buzón y lo empuja el Email Worker.
+ * `goplay`: el buzón es del proveedor y hay que ir a pedírselo por su API.
+ */
+export type CodeProvider = 'propio' | 'goplay';
 export type AssignmentStatus = 'active' | 'expired' | 'revoked';
 export type PinCodeTypeDb = 'household' | 'login' | 'signup' | 'password_reset' | 'unknown';
 export type EmailParseStatusDb = 'parsed' | 'unmatched' | 'failed' | 'ignored';
@@ -199,6 +207,8 @@ export interface Database {
           max_profiles: number;
           status: AccountStatus;
           notes: string | null;
+          code_provider: CodeProvider;
+          provider_profile_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -212,6 +222,8 @@ export interface Database {
           max_profiles?: number;
           status?: AccountStatus;
           notes?: string | null;
+          code_provider?: CodeProvider;
+          provider_profile_id?: string | null;
         };
         Update: {
           service_id?: string;
@@ -222,6 +234,8 @@ export interface Database {
           max_profiles?: number;
           status?: AccountStatus;
           notes?: string | null;
+          code_provider?: CodeProvider;
+          provider_profile_id?: string | null;
         };
         Relationships: [
           {
@@ -910,6 +924,7 @@ export interface Database {
           login_email: string;
           login_password_enc: string;
           account_status: AccountStatus;
+          code_provider: CodeProvider;
           service_slug: string;
           service_name: string;
           brand_color: string;

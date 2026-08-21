@@ -10,6 +10,7 @@ import { requireUser } from '@/features/auth/session';
 import { LivePinCard } from '@/features/pins/components/live-pin-card';
 import { PinChangeRequest } from '@/features/pins/components/pin-change-request';
 import { PinHistory } from '@/features/pins/components/pin-history';
+import { RequestCodeButton } from '@/features/pins/components/request-code-button';
 import { getLatestPinChangeRequest, getLivePins, getPinHistory } from '@/features/pins/queries';
 
 export const metadata: Metadata = { title: 'Detalle de la cuenta' };
@@ -56,6 +57,13 @@ export default async function AccountDetailPage({
           <p className="text-xs text-[var(--color-content-subtle)]">{account.profileLabel}</p>
         </div>
       </div>
+
+      {/*
+        El botón va ANTES del visor, no después: en las cuentas de proveedor el
+        gesto es «pido y miro», y el orden de la pantalla debería seguir al de la
+        acción. En las de buzón propio no hay nada que pedir y no aparece.
+      */}
+      {account.codeProvider !== 'propio' && <RequestCodeButton accountId={account.accountId} />}
 
       <LivePinCard
         accountId={account.accountId}

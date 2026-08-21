@@ -45,6 +45,22 @@ export interface ProviderEmail extends RawEmail {
   readonly receivedAt: Date;
 }
 
+/**
+ * Por qué no vino ningún correo.
+ *
+ * Distinguirlo no es un lujo: al cliente hay que decirle cosas opuestas. Con
+ * `sin-correo` que espere unos segundos y reintente; con `ya-leido` que ese
+ * código ya se consumió y reintentar no sirve de nada, tiene que pedirle otro
+ * al servicio.
+ */
+export type MotivoSinCorreo = 'sin-correo' | 'ya-leido' | 'desconocido';
+
+export interface ProviderFetchResult {
+  readonly emails: readonly ProviderEmail[];
+  /** Sólo cuando `emails` está vacío. */
+  readonly motivo: MotivoSinCorreo | null;
+}
+
 export interface CodeProvider {
   /** Identifica al proveedor en la base de datos y en los logs. */
   readonly slug: string;
@@ -57,5 +73,5 @@ export interface CodeProvider {
    * como tal — el cliente acaba de pulsar el botón y el correo puede tardar unos
    * segundos.
    */
-  fetchEmails(providerProfileId: string): Promise<Result<readonly ProviderEmail[], DomainError>>;
+  fetchEmails(providerProfileId: string): Promise<Result<ProviderFetchResult, DomainError>>;
 }

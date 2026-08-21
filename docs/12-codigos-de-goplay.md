@@ -193,9 +193,58 @@ caracteres. `active_g2fa` llegó desactivado.
 El `profile_id` **no es un número**: es un UUID
 (`69e1f7d0-6baa-49e3-a1e6-fead03e1000e`). La columna que lo guarde debe ser texto.
 
-## 6 · Qué falta
+## 6 · Cómo queda montado
 
-- **El esquema.** `streaming_accounts` necesita `proveedor` y
-  `proveedor_perfil_id` para saber a qué cuenta de GoPlay corresponde cada una.
-- **La pantalla.** La Server Action de autoservicio, con su límite de frecuencia
-  para no martillear a GoPlay cada vez que el cliente pierde la paciencia.
+```
+El cliente pulsa «Pedir mi código» en /cuenta/[id]
+   ↓
+pedirCodigoAction         ← requireUser + límite de frecuencia
+   ↓  lee v_my_accounts con la sesión del cliente  → RLS decide si la cuenta es suya
+   ↓  lee streaming_accounts con el cliente admin  → provider_profile_id e inbox_email
+RequestProviderCodeUseCase
+   ↓
+GoPlayCodeProvider → POST /api/v1/profiles-check-emails
+   ↓
+ProcessInboundEmailUseCase   ← el MISMO que usa el webhook de Netflix
+   ↓  elige parser por remitente, extrae el código
+ingest_inbound_email()       ← una transacción, idempotente por message_id
+   ↓
+Supabase Realtime → <LivePinCard/>
+```
+
+Tres decisiones que sostienen esto:
+
+- **`inbox_email` sigue siendo la llave.** En una cuenta de GoPlay se guarda ahí
+  el buzón de ellos, así que el RPC resuelve la cuenta igual que siempre y no
+  hace falta un segundo camino de ingesta.
+- **El `message_id` va prefijado con el proveedor** (`goplay:1755…`). Sin el
+  prefijo, un identificador de Zoho podría chocar con uno de Cloudflare y el
+  segundo correo se descartaría como duplicado.
+- **La autorización va en dos pasos, en este orden.** Primero se lee la vista con
+  la sesión del cliente —si la cuenta no es suya, no hay fila y se acaba ahí—; y
+  sólo después se usa el cliente administrativo, que omite RLS, para leer el
+  identificador del proveedor. Invertir el orden sería una fuga.
+
+## 7 · Conectar una cuenta
+
+El `provider_profile_id` sale de `npm run diagnostico:goplay`. El `inbox_email`
+es la «Cuenta Digital» que muestra su panel.
+
+```sql
+update public.streaming_accounts
+   set code_provider       = 'goplay',
+       provider_profile_id = '69e1f7d0-6baa-49e3-a1e6-fead03e1000e',
+       inbox_email         = 'disney2premiun2276@yaihoo.co'
+ where label = 'Disney 01';
+```
+
+En cuanto esa fila queda así, la pantalla del cliente muestra el botón.
+
+## 8 · Qué falta
+
+- **El campo en `/admin`.** Hoy la conexión se hace por SQL. Lo natural es un par
+  de campos en el formulario de la cuenta, para no depender del editor de
+  Supabase.
+- **Renovar el token entre instancias.** Cada arranque en frío de Vercel hace un
+  login nuevo. Es asumible, pero si el volumen crece conviene cachearlo fuera del
+  proceso.

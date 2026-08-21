@@ -3,6 +3,7 @@ import 'server-only';
 import { ProcessInboundEmailUseCase } from '@/core/use-cases/process-inbound-email.use-case';
 import { AssignProfileUseCase } from '@/core/use-cases/assign-profile.use-case';
 import { RevokeAssignmentUseCase } from '@/core/use-cases/revoke-assignment.use-case';
+import { RequestProviderCodeUseCase } from '@/core/use-cases/request-provider-code.use-case';
 import { logger } from '@/lib/logger';
 
 import { emailParsers } from './email/parsers/registry';
@@ -10,6 +11,8 @@ import { SupabaseInboundEmailRepository } from './repositories/supabase-inbound-
 import { SupabaseAssignmentRepository } from './repositories/supabase-assignment.repository';
 import { createSupabaseAdminClient } from './supabase/admin';
 import { createSupabaseServerClient } from './supabase/server';
+import { GoPlayCodeProvider } from './providers/goplay/goplay.provider';
+import { getServerEnv } from '@/lib/env';
 
 /**
  * Composition root — el único lugar donde se decide qué implementación concreta
@@ -50,4 +53,33 @@ export async function makeAssignProfileUseCase(): Promise<AssignProfileUseCase> 
 export async function makeRevokeAssignmentUseCase(): Promise<RevokeAssignmentUseCase> {
   const client = await createSupabaseServerClient();
   return new RevokeAssignmentUseCase(new SupabaseAssignmentRepository(client), logger);
+}
+
+/**
+ * Consulta de código a GoPlay.
+ *
+ * Usa el cliente ADMINISTRATIVO por la misma razón que la ingesta del webhook:
+ * el RPC está revocado para los roles públicos, y quien dispara esto es un
+ * cliente cuyas políticas —correctamente— no le dejan escribir un PIN. Es una
+ * operación del sistema desencadenada por el usuario, no una operación del
+ * usuario.
+ *
+ * La autorización de "¿es tuya esta cuenta?" ocurre antes, en la Server Action,
+ * leyendo con el cliente con sesión: ahí sí manda RLS.
+ */
+export function makeRequestGoPlayCodeUseCase(): RequestProviderCodeUseCase {
+  const env = getServerEnv();
+
+  const provider = new GoPlayCodeProvider({
+    baseUrl: env.GOPLAY_BASE_URL,
+    origin: env.GOPLAY_ORIGIN,
+    token: env.GOPLAY_TOKEN ?? null,
+    credentials:
+      env.GOPLAY_EMAIL && env.GOPLAY_PASSWORD
+        ? { email: env.GOPLAY_EMAIL, password: env.GOPLAY_PASSWORD }
+        : null,
+    logger,
+  });
+
+  return new RequestProviderCodeUseCase(provider, makeProcessInboundEmailUseCase(), logger);
 }

@@ -3,6 +3,7 @@ import 'server-only';
 import { createSupabaseServerClient } from '@/infrastructure/supabase/server';
 import { tryDecrypt } from '@/infrastructure/crypto/credential-cipher';
 import type { AssignmentStatus } from '@/core/domain/entities';
+import type { CodeProvider } from '@/infrastructure/supabase/database.types';
 
 /**
  * Consultas de las cuentas asignadas al usuario.
@@ -25,6 +26,12 @@ export interface AssignedAccount {
   loginEmail: string;
   /** Descifrada. `null` si el descifrado falla (clave rotada, dato corrupto). */
   loginPassword: string | null;
+  /**
+   * De dónde sale el código de esta cuenta. Decide si la pantalla ofrece el
+   * botón de «pedir mi código»: con `propio` el correo llega solo y no hay nada
+   * que pedir.
+   */
+  codeProvider: CodeProvider;
   accountProfileId: string;
   profileLabel: string;
   profilePin: string | null;
@@ -58,6 +65,7 @@ export async function getMyAccounts(userId: string): Promise<AssignedAccount[]> 
     // El descifrado ocurre en el servidor. Nunca se envía la credencial cifrada
     // al navegador: no aportaría nada y ampliaría la superficie de exposición.
     loginPassword: tryDecrypt(row.login_password_enc),
+    codeProvider: row.code_provider,
     accountProfileId: row.account_profile_id,
     profileLabel: row.profile_label,
     profilePin: row.profile_pin,
