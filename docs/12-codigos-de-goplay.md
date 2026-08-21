@@ -53,7 +53,27 @@ POST /api/v1/profiles-check-emails      body: { profile_id }
 
 Es exactamente lo que hace el botón del sobre en su panel.
 
-## 3 · Las tres trampas de su respuesta
+## 3 · Las trampas de su respuesta
+
+### 3.0 Cada correo se entrega UNA SOLA VEZ
+
+Es lo que más condiciona el diseño. Al devolver un correo, GoPlay **lo marca como
+leído**, y a partir de ese momento contesta:
+
+```jsonc
+{ "success": false, "msg": "Este mensaje ya fue leido." }
+```
+
+No hay forma de volver a pedirlo. De ahí salen tres reglas que no son negociables:
+
+1. **Persistir el código antes de hacer cualquier otra cosa.** Si la consulta va
+   bien y el guardado falla, el código se perdió para siempre y al cliente sólo
+   le queda pedirle otro a Disney.
+2. **Nunca reintentar una consulta que ya tuvo éxito.** El reintento no devuelve
+   el correo, lo confirma como perdido.
+3. **Distinguir los dos «no hay código»**, porque al cliente hay que decirle
+   cosas distintas: con `sin-correo` que espere y reintente; con `ya-leido` que
+   ese código ya se consumió y pida uno nuevo. Lo resuelve `motivoSinCodigo()`.
 
 ### 3.1 Responde 200 aunque falle
 
@@ -103,6 +123,27 @@ en el HTML, tras `htmlToText`, el código queda solo en su línea.
 Hoy el parser acierta gracias a esa regla de línea aislada. La regla laxa
 `codigo-etiquetado-laxo` existe como red por si Disney cambia la maquetación.
 
+### 3.4 Su backend exige la cabecera `Origin`
+
+Su PHP lee `$_SERVER['HTTP_ORIGIN']` **sin comprobar que exista**. Un navegador
+la manda siempre; una petición hecha desde un servidor, no. Sin ella la API
+contesta:
+
+```jsonc
+{ "success": false, "message": "Undefined array key \"HTTP_ORIGIN\"" }
+```
+
+Y ahí está lo caro: eso es **indistinguible de una contraseña incorrecta**. El
+diagnóstico dice «GoPlay rechazó el inicio de sesión» y uno se pone a revisar
+credenciales que están perfectas.
+
+Por eso `GoPlayClient` manda siempre `Origin` y `Referer` con el subdominio del
+revendedor (`GOPLAY_ORIGIN`), y hay un test que lo comprueba en todas las
+peticiones. También explica por qué `/api/login` no se podía probar desde la
+consola del navegador: la petición sí llevaba `Origin`, pero su respuesta de
+error salía sin cabeceras CORS y el navegador la descartaba antes de dejarnos
+leerla.
+
 ## 4 · La autenticación, y su punto débil
 
 GoPlay tiene dos caminos de acceso:
@@ -136,6 +177,7 @@ bloqueen la cuenta.
 
 ```bash
 GOPLAY_BASE_URL=https://api.goplay.com.co
+GOPLAY_ORIGIN=https://mypantalla.goplay.com.co   # tu subdominio: va como cabecera Origin
 GOPLAY_EMAIL=...        # correo del operador en GoPlay
 GOPLAY_PASSWORD=...     # se usa sólo desde el servidor
 GOPLAY_TOKEN=           # alternativa si el login automático no es posible
@@ -144,12 +186,15 @@ GOPLAY_TOKEN=           # alternativa si el login automático no es posible
 Todas opcionales: sin ellas la aplicación arranca igual y lo único que no
 funciona es consultar códigos de ese proveedor.
 
+Verificado contra el servidor real el 2026-08-21: el login responde
+`{ token, profile, company, menu, success }`, con el token en la raíz y 55
+caracteres. `active_g2fa` llegó desactivado.
+
+El `profile_id` **no es un número**: es un UUID
+(`69e1f7d0-6baa-49e3-a1e6-fead03e1000e`). La columna que lo guarde debe ser texto.
+
 ## 6 · Qué falta
 
-- **Confirmar la respuesta de `/api/login`.** No se pudo verificar desde el
-  navegador —responde sin cabeceras CORS— así que `extraerToken()` acepta varias
-  ubicaciones plausibles del token. En cuanto se compruebe contra el servidor
-  real, hay que dejar una sola y anotarlo aquí.
 - **El esquema.** `streaming_accounts` necesita `proveedor` y
   `proveedor_perfil_id` para saber a qué cuenta de GoPlay corresponde cada una.
 - **La pantalla.** La Server Action de autoservicio, con su límite de frecuencia

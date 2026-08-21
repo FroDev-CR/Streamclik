@@ -26,6 +26,17 @@ export interface GoPlayCredentials {
 export interface GoPlayClientOptions {
   readonly baseUrl?: string;
   /**
+   * Valor de la cabecera `Origin`.
+   *
+   * No es opcional para ellos aunque lo parezca: su backend lee
+   * `$_SERVER['HTTP_ORIGIN']` sin comprobar que exista, así que una petición sin
+   * `Origin` —cualquiera hecha fuera de un navegador— revienta con
+   * `Undefined array key "HTTP_ORIGIN"` y contesta `success: false`. El síntoma
+   * es idéntico al de una contraseña incorrecta, que es lo que lo hace caro de
+   * diagnosticar.
+   */
+  readonly origin?: string;
+  /**
    * Token ya emitido. Sirve de vía de escape si algún día se activa Google
    * Authenticator en la cuenta: con 2FA el login automático deja de ser posible
    * y hay que pegar un token a mano.
@@ -38,38 +49,29 @@ export interface GoPlayClientOptions {
 
 const BASE_POR_DEFECTO = 'https://api.goplay.com.co';
 
+/** Subdominio del revendedor: es el `Origin` que su API espera ver. */
+const ORIGEN_POR_DEFECTO = 'https://mypantalla.goplay.com.co';
+
 const esObjeto = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /**
- * Busca el token en la respuesta de login.
+ * Extrae el token de la respuesta de login.
  *
- * Se prueban varias ubicaciones a propósito: la respuesta de `/api/login` no se
- * pudo verificar contra el servidor real —desde el navegador la bloquea CORS— y
- * su panel guarda el token bajo la clave `token`. Antes que fingir certeza, se
- * aceptan las formas plausibles y se falla con un mensaje explícito si no
- * aparece ninguna. **Cuando se confirme la forma real, reducir esto a una sola
- * ruta y dejar constancia en docs/12.**
+ * Verificado contra el servidor real el 2026-08-21: la respuesta trae
+ * `{ token, profile, company, menu, success }` y el token va en la raíz, en
+ * `token`, con 55 caracteres. Se comprueba una sola ubicación a propósito: si
+ * algún día la cambian, preferimos un fallo ruidoso aquí que un token leído de
+ * un sitio equivocado.
  */
 function extraerToken(cuerpo: Record<string, unknown>): string | null {
-  const candidatos: unknown[] = [
-    cuerpo.token,
-    cuerpo.access_token,
-    esObjeto(cuerpo.data) ? cuerpo.data.token : null,
-    esObjeto(cuerpo.data) ? cuerpo.data.access_token : null,
-    esObjeto(cuerpo.profile) ? cuerpo.profile.token : null,
-    esObjeto(cuerpo.user) ? cuerpo.user.token : null,
-  ];
-
-  for (const candidato of candidatos) {
-    if (typeof candidato === 'string' && candidato.length >= 10) return candidato;
-  }
-
-  return null;
+  const token = cuerpo.token;
+  return typeof token === 'string' && token.length >= 10 ? token : null;
 }
 
 export class GoPlayClient {
   private readonly baseUrl: string;
+  private readonly origin: string;
   private readonly credentials: GoPlayCredentials | null;
   private readonly fetchImpl: typeof fetch;
   private readonly logger: Logger | null;
@@ -77,6 +79,7 @@ export class GoPlayClient {
 
   constructor(options: GoPlayClientOptions = {}) {
     this.baseUrl = (options.baseUrl ?? BASE_POR_DEFECTO).replace(/\/+$/, '');
+    this.origin = (options.origin ?? ORIGEN_POR_DEFECTO).replace(/\/+$/, '');
     this.credentials = options.credentials ?? null;
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.logger = options.logger ?? null;
@@ -87,6 +90,20 @@ export class GoPlayClient {
    * Pide los correos de un perfil. Devuelve el cuerpo **crudo**: interpretarlo
    * es cosa de `mapGoPlayResponse`, que es puro y se prueba sin red.
    */
+  /**
+   * Cabeceras que toda petición a GoPlay debe llevar. `Origin` y `Referer` van
+   * porque su backend los da por hechos (ver `GoPlayClientOptions.origin`).
+   */
+  private cabeceras(extra: Record<string, string> = {}): Record<string, string> {
+    return {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      Origin: this.origin,
+      Referer: `${this.origin}/`,
+      ...extra,
+    };
+  }
+
   async checkEmails(providerProfileId: string): Promise<Result<unknown, DomainError>> {
     const token = await this.obtenerToken();
 
@@ -118,11 +135,7 @@ export class GoPlayClient {
     try {
       respuesta = await this.fetchImpl(`${this.baseUrl}/api/v1/profiles-check-emails`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
+        headers: this.cabeceras({ Authorization: `Bearer ${token}` }),
         body: JSON.stringify({ profile_id: providerProfileId }),
       });
     } catch (cause) {
@@ -161,7 +174,7 @@ export class GoPlayClient {
     try {
       respuesta = await this.fetchImpl(`${this.baseUrl}/api/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        headers: this.cabeceras(),
         body: JSON.stringify({
           email: this.credentials.email,
           password: this.credentials.password,

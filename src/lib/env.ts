@@ -83,6 +83,12 @@ const serverSchema = z.object({
    * Ver `docs/12-codigos-de-goplay.md`.
    */
   GOPLAY_BASE_URL: z.string().url().default('https://api.goplay.com.co'),
+
+  /**
+   * Subdominio del revendedor. Viaja como cabecera `Origin` en cada petición:
+   * el backend de GoPlay la da por hecha y falla sin ella.
+   */
+  GOPLAY_ORIGIN: z.string().url().default('https://mypantalla.goplay.com.co'),
   GOPLAY_EMAIL: z.string().email('GOPLAY_EMAIL debe ser un correo válido').optional(),
   GOPLAY_PASSWORD: z.string().min(1).optional(),
   GOPLAY_TOKEN: z.string().min(10).optional(),

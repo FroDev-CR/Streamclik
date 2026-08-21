@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { DisneyPlusEmailParser } from '@/infrastructure/email/parsers/disney-plus.parser';
-import { mapGoPlayResponse } from '@/infrastructure/providers/goplay/goplay.mapper';
+import { mapGoPlayResponse, motivoSinCodigo } from '@/infrastructure/providers/goplay/goplay.mapper';
 
 import conCodigo from './fixtures/goplay-disney-codigo.json';
 import sinCodigo from './fixtures/goplay-sin-codigo.json';
+import yaLeido from './fixtures/goplay-ya-leido.json';
 
 /**
  * Los fixtures reproducen respuestas reales de GoPlay del 2026-08-21, con el
@@ -93,6 +94,31 @@ describe('mapGoPlayResponse', () => {
     const resultado = mapGoPlayResponse({ success: true, response: { result: 'success', items: [] } });
 
     expect(resultado.ok).toBe(false);
+  });
+});
+
+/**
+ * GoPlay entrega cada correo UNA SOLA VEZ: al devolverlo lo marca como leído y
+ * después contesta «Este mensaje ya fue leido». Distinguir ese caso de «todavía
+ * no ha llegado nada» es lo que separa un mensaje útil («pedile otro código a
+ * Disney») de uno que manda al cliente a reintentar en vano.
+ */
+describe('motivoSinCodigo', () => {
+  it('reconoce que el buzón está vacío', () => {
+    expect(motivoSinCodigo(sinCodigo)).toBe('sin-correo');
+  });
+
+  it('reconoce que el correo ya se consumió', () => {
+    expect(motivoSinCodigo(yaLeido)).toBe('ya-leido');
+  });
+
+  it('no adivina ante un mensaje que no conoce', () => {
+    expect(motivoSinCodigo({ success: false, msg: 'Servicio en mantenimiento' })).toBe('desconocido');
+  });
+
+  it('tolera el acento y el espacio final que traen sus mensajes', () => {
+    expect(motivoSinCodigo({ success: false, msg: 'No se pudo obtener el codigo del correo. ' })).toBe('sin-correo');
+    expect(motivoSinCodigo({ success: false, msg: 'Este mensaje ya fue leído.' })).toBe('ya-leido');
   });
 });
 

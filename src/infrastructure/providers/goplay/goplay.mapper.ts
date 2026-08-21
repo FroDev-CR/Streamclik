@@ -18,10 +18,16 @@ import { err, ok, type Result } from '@/core/shared/result';
  *    `JSON.parse` dos veces. Dentro viaja la respuesta cruda de Zoho Mail, que
  *    es quien les hospeda el buzón.
  * 3. **`toAddress` viene escapado como HTML** (`&lt;alguien@dominio&gt;`).
+ *
+ * Y por encima de todas, la que condiciona el diseño entero:
+ *
+ * ⚠️ **Cada correo se entrega UNA SOLA VEZ.** GoPlay lo marca como leído al
+ * devolverlo, y a partir de ahí contesta «Este mensaje ya fue leido». No hay
+ * forma de volver a pedirlo. En consecuencia: quien reciba estos correos tiene
+ * que **persistirlos antes de hacer nada más**, porque si algo falla después de
+ * la consulta el código se pierde para siempre y al cliente sólo le queda
+ * pedirle otro a Disney.
  */
-
-/** Mensaje con el que GoPlay contesta cuando todavía no hay ningún correo. */
-export const MENSAJE_SIN_CODIGO = 'No se pudo obtener el código del correo.';
 
 interface SobreGoPlay {
   readonly success?: unknown;
@@ -43,6 +49,29 @@ const esObjeto = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
 const texto = (v: unknown): string | null => (typeof v === 'string' && v.length > 0 ? v : null);
+
+/**
+ * Por qué no vino ningún código.
+ *
+ * GoPlay distingue dos situaciones con dos mensajes, y la diferencia importa
+ * mucho para lo que hay que decirle al cliente:
+ *
+ * - `sin-correo`: el buzón no tiene nada. Que espere unos segundos y reintente.
+ * - `ya-leido`: **había un correo y ya se consumió.** Reintentar no sirve de
+ *   nada; hay que pedirle a Disney un código nuevo.
+ */
+export type MotivoSinCodigo = 'sin-correo' | 'ya-leido' | 'desconocido';
+
+const MENSAJE_SIN_CORREO = /no se pudo obtener el c[oó]digo/i;
+const MENSAJE_YA_LEIDO = /ya fue le[ií]do/i;
+
+export function motivoSinCodigo(body: unknown): MotivoSinCodigo {
+  const msg = esObjeto(body) && typeof body.msg === 'string' ? body.msg : '';
+
+  if (MENSAJE_YA_LEIDO.test(msg)) return 'ya-leido';
+  if (MENSAJE_SIN_CORREO.test(msg)) return 'sin-correo';
+  return 'desconocido';
+}
 
 /** Deshace el escapado HTML y se queda con la dirección de dentro de los <>. */
 function direccion(v: unknown): string {

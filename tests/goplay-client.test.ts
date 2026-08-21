@@ -131,4 +131,35 @@ describe('GoPlayClient', () => {
     expect(resultado.ok).toBe(false);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
+  it('manda la cabecera Origin en todas las peticiones', async () => {
+    // Su backend lee $_SERVER['HTTP_ORIGIN'] sin comprobar que exista. Sin esta
+    // cabecera contesta «Undefined array key "HTTP_ORIGIN"» con success:false,
+    // que es indistinguible de una contraseña incorrecta. Costó un diagnóstico
+    // entero descubrirlo; este test evita repetirlo.
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(respuesta({ success: true, token: 'token-de-prueba-123456' }))
+      .mockResolvedValueOnce(respuesta({ success: false, msg: 'nada' }));
+
+    const client = new GoPlayClient({ credentials: credenciales, fetchImpl });
+    await client.checkEmails('42');
+
+    for (const [, opciones] of fetchImpl.mock.calls) {
+      const cabeceras = opciones?.headers as Record<string, string>;
+      expect(cabeceras.Origin).toBe('https://mypantalla.goplay.com.co');
+      expect(cabeceras.Referer).toBe('https://mypantalla.goplay.com.co/');
+    }
+  });
+
+  it('permite cambiar el Origin para otro subdominio de revendedor', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async () => respuesta({ success: false, msg: 'nada' }));
+
+    const client = new GoPlayClient({ token: 'token-manual-1234567890', origin: 'https://otro.goplay.com.co', fetchImpl });
+    await client.checkEmails('42');
+
+    const [, opciones] = fetchImpl.mock.calls[0]!;
+    expect((opciones?.headers as Record<string, string>).Origin).toBe('https://otro.goplay.com.co');
+  });
 });
