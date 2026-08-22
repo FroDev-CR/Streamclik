@@ -26,7 +26,7 @@ import { pedirCodigoAction, type ResultadoCodigo } from '../actions';
 const MENSAJES: Record<ResultadoCodigo['estado'], (r: ResultadoCodigo) => string> = {
   entregado: (r) =>
     r.estado === 'entregado' && r.codigos > 0
-      ? 'Listo, tu código está abajo.'
+      ? 'Listo, tu código está arriba.'
       : 'Ese código ya estaba en pantalla.',
   'sin-correo': () => 'Todavía no llegó ningún código. Esperá unos segundos y volvé a pedirlo.',
   'ya-leido': () =>
@@ -35,7 +35,17 @@ const MENSAJES: Record<ResultadoCodigo['estado'], (r: ResultadoCodigo) => string
   error: (r) => (r.estado === 'error' ? r.mensaje : 'No se pudo pedir el código.'),
 };
 
-export function RequestCodeButton({ accountId }: { accountId: string }) {
+export function RequestCodeButton({
+  accountId,
+  onCodigoRecibido,
+}: {
+  accountId: string;
+  /**
+   * Se llama cuando el proveedor entregó algo. Sirve para que el visor recargue
+   * en el acto en vez de esperar a que Realtime lo despierte.
+   */
+  onCodigoRecibido?: () => void | Promise<void>;
+}) {
   const [pendiente, startTransition] = useTransition();
   const [ultimo, setUltimo] = useState<ResultadoCodigo['estado'] | null>(null);
 
@@ -46,7 +56,10 @@ export function RequestCodeButton({ accountId }: { accountId: string }) {
 
       const mensaje = MENSAJES[resultado.estado](resultado);
 
-      if (resultado.estado === 'entregado') toast.success(mensaje);
+      if (resultado.estado === 'entregado') {
+        await onCodigoRecibido?.();
+        toast.success(mensaje);
+      }
       else if (resultado.estado === 'error') toast.error(mensaje);
       else toast(mensaje);
     });

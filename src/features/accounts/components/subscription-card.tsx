@@ -264,7 +264,10 @@ export function SubscriptionCard({
   initialPins,
   codeProvider,
 }: SubscriptionCardProps) {
-  const { pins, isConnected, justArrivedId, now } = useLivePins({ accountId, initialPins });
+  const { pins, isConnected, justArrivedId, now, refetch } = useLivePins({
+    accountId,
+    initialPins,
+  });
 
   const hayVarios = pins.length > 1;
   const esDeProveedor = codeProvider !== 'propio';
@@ -381,7 +384,7 @@ export function SubscriptionCard({
             gesto sea siempre el mismo: pedir, y mirar justo encima. */}
         {esDeProveedor && (
           <div className="mt-4">
-            <RequestCodeButton accountId={accountId} />
+            <RequestCodeButton accountId={accountId} onCodigoRecibido={refetch} />
           </div>
         )}
       </div>

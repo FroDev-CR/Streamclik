@@ -51,6 +51,16 @@ interface UseLivePinsResult {
    * reflejara.
    */
   now: Date;
+  /**
+   * Vuelve a consultar los códigos de la ventana, ahora.
+   *
+   * Se expone porque el estado inicial sólo se lee al montar: cuando una Server
+   * Action acaba de crear un PIN, el servidor manda datos frescos que este hook
+   * ya no mira. Sin esto, el código aparecería únicamente cuando Realtime se
+   * decidiera a entregarlo —normalmente rápido, a veces no— y el usuario se
+   * queda mirando un hueco vacío después de que le dijimos «listo».
+   */
+  refetch: () => Promise<void>;
 }
 
 type PinRow = {
@@ -199,5 +209,5 @@ export function useLivePins({ accountId, initialPins }: UseLivePinsOptions): Use
 
   const pins = useMemo(() => selectLivePins(recibidos, now), [recibidos, now]);
 
-  return { pins, isConnected, justArrivedId, now };
+  return { pins, isConnected, justArrivedId, now, refetch };
 }
