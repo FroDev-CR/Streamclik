@@ -92,6 +92,7 @@ export default async function MisSuscripcionesPage() {
               profilePin={account.profilePin}
               expiresAt={account.expiresAt}
               initialPins={pins[indice] ?? []}
+              codeProvider={account.codeProvider}
             />
           ))}
         </div>

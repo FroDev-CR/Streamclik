@@ -26,7 +26,9 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { RequestCodeButton } from '@/features/pins/components/request-code-button';
 import { useLivePins } from '@/features/pins/use-live-pins';
+import type { CodeProvider } from '@/infrastructure/supabase/database.types';
 import { cn, formatCountdown, formatDateTime, formatRelativeTime } from '@/lib/utils';
 
 /**
@@ -51,6 +53,12 @@ interface SubscriptionCardProps {
   profilePin: string | null;
   expiresAt: string | null;
   initialPins: VerificationPin[];
+  /**
+   * De dónde llega el código. Con `propio` el correo entra solo por el webhook y
+   * no hay nada que pedir; con un proveedor externo hay que ir a buscarlo, y por
+   * eso aparece el botón.
+   */
+  codeProvider: CodeProvider;
 }
 
 const VENTANA_MINUTOS = Math.round(LIVE_PIN_WINDOW_SECONDS / 60);
@@ -254,10 +262,12 @@ export function SubscriptionCard({
   profilePin,
   expiresAt,
   initialPins,
+  codeProvider,
 }: SubscriptionCardProps) {
   const { pins, isConnected, justArrivedId, now } = useLivePins({ accountId, initialPins });
 
   const hayVarios = pins.length > 1;
+  const esDeProveedor = codeProvider !== 'propio';
 
   const diasRestantes = expiresAt
     ? Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86_400_000)
@@ -325,7 +335,9 @@ export function SubscriptionCard({
               Aún no hay ningún código reciente
             </p>
             <p className="mt-1 text-xs text-[var(--color-content-subtle)]">
-              Solicítalo desde {serviceName} y aparecerá aquí solo
+              {esDeProveedor
+                ? `Pídelo en ${serviceName} y luego toca el botón`
+                : `Solicítalo desde ${serviceName} y aparecerá aquí solo`}
             </p>
           </div>
         ) : (
@@ -360,6 +372,16 @@ export function SubscriptionCard({
             <p className="text-[0.68rem] text-[var(--color-content-subtle)]">
               Los códigos se quedan aquí {VENTANA_MINUTOS} minutos.
             </p>
+          </div>
+        )}
+
+        {/* El botón vive aquí y no en una pantalla aparte porque el momento de
+            uso es el mismo que el del resto de la tarjeta: el cliente delante
+            del televisor. Va debajo del visor —haya código o no— para que el
+            gesto sea siempre el mismo: pedir, y mirar justo encima. */}
+        {esDeProveedor && (
+          <div className="mt-4">
+            <RequestCodeButton accountId={accountId} />
           </div>
         )}
       </div>
