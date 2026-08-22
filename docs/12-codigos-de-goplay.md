@@ -225,6 +225,22 @@ Tres decisiones que sostienen esto:
   sólo después se usa el cliente administrativo, que omite RLS, para leer el
   identificador del proveedor. Invertir el orden sería una fuga.
 
+### 4.1 Una trampa de la migración, no de GoPlay
+
+`create or replace view` sólo permite **añadir columnas al final**. Insertar una
+en medio —que es lo natural al añadir `code_provider` junto a `account_status`—
+Postgres lo lee como un intento de renombrar la columna que ocupaba esa posición:
+
+```
+42P16: cannot change name of view column "service_slug" to "code_provider"
+```
+
+Y como el editor SQL de Supabase ejecuta el archivo entero en una transacción,
+ese error **deshace también los `alter table` anteriores**. El síntoma es
+desconcertante: la migración «falla al final» y la columna que creaba al
+principio tampoco existe. Por eso la vista se recrea con `drop view` + `create
+view`.
+
 ## 7 · Dar de alta una cuenta
 
 Desde **`/admin` → «Importar de GoPlay»**. La pantalla lee su inventario y

@@ -78,8 +78,22 @@ comment on column public.streaming_accounts.provider_profile_id is
 -- `provider_profile_id` NO se expone. El cliente no lo necesita para nada y es
 -- un identificador de nuestro proveedor: la Server Action lo resuelve en el
 -- servidor a partir del identificador de la cuenta.
+--
+-- ⚠️ Se hace DROP + CREATE y no `create or replace view`. Postgres sólo deja
+-- **añadir columnas al final** con `replace`: insertar una en medio lo
+-- interpreta como renombrar la que ocupaba esa posición y falla con
+--
+--   42P16: cannot change name of view column "service_slug" to "code_provider"
+--
+-- El editor de Supabase ejecuta el archivo en una sola transacción, así que ese
+-- error deshace también los `alter table` de arriba y la migración parece no
+-- haber hecho nada. Poner la columna al final habría evitado el error, pero deja
+-- el orden de la vista contando la historia de cómo se fue parcheando en vez de
+-- cómo se lee.
 -- -----------------------------------------------------------------------------
-create or replace view public.v_my_accounts
+drop view if exists public.v_my_accounts;
+
+create view public.v_my_accounts
 with (security_invoker = true)
 as
 select
