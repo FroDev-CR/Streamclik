@@ -377,6 +377,72 @@ export async function revokeAssignmentAction(formData: FormData): Promise<void> 
 // -----------------------------------------------------------------------------
 
 /**
+ * Corrige la fecha de una suscripción desde la ficha del cliente.
+ *
+ * Una suscripción es una asignación de perfil, no un campo suelto del cliente.
+ * Por eso se modifica la misma fila que controla el acceso y no una copia para
+ * la interfaz. Dejar el valor vacío significa que el acceso no vence por fecha;
+ * retirar una suscripción equivocada es otra operación y se hace con
+ * `revokeAssignmentAction`, para conservar el historial.
+ */
+const updateClientSubscriptionSchema = z.object({
+  assignmentId: z.string().uuid('Suscripción no válida'),
+  expiresAt: z
+    .string()
+    .optional()
+    .refine(
+      (value) => {
+        if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return !value;
+        const date = new Date(`${value}T23:59:59.999Z`);
+        return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+      },
+      'Fecha inválida',
+    )
+    .transform((value) => (value ? new Date(`${value}T23:59:59.999`).toISOString() : null)),
+});
+
+export async function updateClientSubscriptionAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireAdmin();
+
+  const parsed = updateClientSubscriptionSchema.safeParse({
+    assignmentId: formData.get('assignmentId'),
+    expiresAt: formData.get('expiresAt'),
+  });
+
+  if (!parsed.success) {
+    return { error: 'Revisa la fecha de vencimiento.' };
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase
+    .from('profile_assignments')
+    .update({ expires_at: parsed.data.expiresAt })
+    .eq('id', parsed.data.assignmentId)
+    .eq('status', 'active');
+
+  if (error) {
+    logger.error('No se pudo actualizar la suscripción del cliente', {
+      assignmentId: parsed.data.assignmentId,
+      error: error.message,
+    });
+    return { error: 'No se pudo guardar la suscripción.' };
+  }
+
+  revalidatePath('/admin');
+  revalidatePath('/admin/clientes');
+  revalidatePath('/dashboard');
+  revalidatePath('/cuenta', 'layout');
+  revalidatePath('/perfil');
+
+  return { success: 'Vencimiento actualizado.' };
+}
+
+// -----------------------------------------------------------------------------
+
+/**
  * Eliminar una cuenta del banco.
  *
  * Es **irreversible** y arrastra por clave foránea en cascada:
