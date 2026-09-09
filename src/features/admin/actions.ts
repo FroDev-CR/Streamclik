@@ -371,7 +371,9 @@ export async function revokeAssignmentAction(formData: FormData): Promise<void> 
   // exige `status = 'active'`, así que el cliente deja de ver los PIN en la
   // siguiente consulta y también en sus suscripciones de Realtime.
   revalidatePath('/admin');
+  revalidatePath('/admin/clientes');
   revalidatePath('/dashboard');
+  revalidatePath('/perfil');
 }
 
 // -----------------------------------------------------------------------------
@@ -417,11 +419,18 @@ export async function updateClientSubscriptionAction(
   }
 
   const supabase = await createSupabaseServerClient();
+  const isExpired =
+    parsed.data.expiresAt !== null && new Date(parsed.data.expiresAt).getTime() <= Date.now();
   const { error } = await supabase
     .from('profile_assignments')
-    .update({ expires_at: parsed.data.expiresAt })
+    .update({
+      expires_at: parsed.data.expiresAt,
+      // Una fecha pasada libera el perfil de inmediato. Si se corrige hacia el
+      // futuro (o se deja vacía), la misma asignación vuelve a quedar activa.
+      status: isExpired ? 'expired' : 'active',
+    })
     .eq('id', parsed.data.assignmentId)
-    .eq('status', 'active');
+    .in('status', ['active', 'expired']);
 
   if (error) {
     logger.error('No se pudo actualizar la suscripción del cliente', {

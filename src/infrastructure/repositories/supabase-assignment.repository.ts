@@ -60,7 +60,7 @@ export class SupabaseAssignmentRepository implements AssignmentRepository {
       .from('profile_assignments')
       .update({ status: 'revoked', revoked_at: new Date().toISOString() })
       .eq('id', assignmentId)
-      .eq('status', 'active');
+      .in('status', ['active', 'expired']);
 
     if (error) {
       return err(DomainError.infrastructure(`No se pudo revocar la asignación: ${error.message}`, error));

@@ -351,6 +351,8 @@ export interface AdminClientRow {
    */
   totalPedidos: number;
   totalAsignaciones: number;
+  activeSubscriptions: number;
+  expiredSubscriptions: number;
   suscripciones: Array<{
     assignmentId: string;
     serviceName: string;
@@ -358,6 +360,7 @@ export interface AdminClientRow {
     accountLabel: string;
     profileLabel: string;
     expiresAt: string | null;
+    isExpired: boolean;
   }>;
   rewards: Array<{
     id: string;
@@ -460,9 +463,10 @@ export async function getAdminClients(): Promise<QueryResult<AdminClientRow[]>> 
       totalPedidos: fila.orders?.length ?? 0,
       totalAsignaciones: fila.profile_assignments?.length ?? 0,
       suscripciones: fila.profile_assignments
-        // Sólo lo vigente: el historial de asignaciones revocadas es útil para
-        // auditar, pero aquí la pregunta es qué tiene contratado ahora.
-        .filter((asignacion) => asignacion.status === 'active')
+        // Se omiten las revocadas (son historial), pero se mantienen las
+        // vencidas: el operador justamente necesita encontrarlas y corregirlas
+        // desde esta pantalla después de una migración o una fecha mal puesta.
+        .filter((asignacion) => asignacion.status !== 'revoked')
         .map((asignacion) => ({
           assignmentId: asignacion.id,
           serviceName:
@@ -473,7 +477,20 @@ export async function getAdminClients(): Promise<QueryResult<AdminClientRow[]>> 
           accountLabel: asignacion.account_profiles?.streaming_accounts?.label ?? '—',
           profileLabel: asignacion.account_profiles?.label ?? '—',
           expiresAt: asignacion.expires_at,
+          isExpired:
+            asignacion.status === 'expired' ||
+            (asignacion.expires_at !== null && new Date(asignacion.expires_at).getTime() <= Date.now()),
         })),
+      activeSubscriptions: fila.profile_assignments.filter(
+        (asignacion) =>
+          asignacion.status === 'active' &&
+          (asignacion.expires_at === null || new Date(asignacion.expires_at).getTime() > Date.now()),
+      ).length,
+      expiredSubscriptions: fila.profile_assignments.filter(
+        (asignacion) =>
+          asignacion.status === 'expired' ||
+          (asignacion.expires_at !== null && new Date(asignacion.expires_at).getTime() <= Date.now()),
+      ).length,
       rewards: fila.profile_rewards
         .map((reward) => ({
           id: reward.id,

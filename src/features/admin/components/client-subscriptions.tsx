@@ -17,6 +17,7 @@ export interface ClientSubscription {
   accountLabel: string;
   profileLabel: string;
   expiresAt: string | null;
+  isExpired: boolean;
 }
 
 function toDateInput(value: string | null): string {
@@ -67,10 +68,14 @@ function ClientSubscriptionEditor({ subscription }: { subscription: ClientSubscr
           <p className="truncate text-xs text-[var(--color-content-muted)]">
             {subscription.accountLabel}
           </p>
-          <Badge tone="success" className="mt-2">
-            {subscription.expiresAt
-              ? `Vence ${formatDateTime(subscription.expiresAt)}`
-              : 'Sin vencimiento'}
+          <Badge tone={subscription.isExpired ? 'danger' : 'success'} className="mt-2">
+            {subscription.isExpired
+              ? subscription.expiresAt
+                ? `Venció ${formatDateTime(subscription.expiresAt)}`
+                : 'Vencida'
+              : subscription.expiresAt
+                ? `Vence ${formatDateTime(subscription.expiresAt)}`
+                : 'Sin vencimiento'}
           </Badge>
         </div>
       </div>

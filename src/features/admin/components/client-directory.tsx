@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { Mail, Phone, Search, UserRound } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -12,11 +12,15 @@ import { ClientSubscriptions } from './client-subscriptions';
 import { DeleteClient } from './delete-client';
 
 type SubscriptionFilter = 'all' | 'with-subscriptions' | 'without-subscriptions';
+type StatusFilter = 'all' | 'expired' | 'due-soon' | 'attention';
+
+const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
 
 /** Directorio operativo: busca clientes sin solicitar ni exponer datos nuevos. */
 export function ClientDirectory({ clients }: { clients: AdminClientRow[] }) {
   const [search, setSearch] = useState('');
   const [subscriptionFilter, setSubscriptionFilter] = useState<SubscriptionFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [serviceFilter, setServiceFilter] = useState('all');
 
   const services = useMemo(
@@ -31,21 +35,35 @@ export function ClientDirectory({ clients }: { clients: AdminClientRow[] }) {
     const term = search.trim().toLocaleLowerCase('es');
 
     return clients.filter((client) => {
-      const hasSubscriptions = client.suscripciones.length > 0;
+      const hasSubscriptions = client.activeSubscriptions > 0;
       const matchesSubscription =
         subscriptionFilter === 'all' ||
         (subscriptionFilter === 'with-subscriptions' && hasSubscriptions) ||
         (subscriptionFilter === 'without-subscriptions' && !hasSubscriptions);
       const matchesService =
         serviceFilter === 'all' || client.suscripciones.some((item) => item.serviceName === serviceFilter);
+      const hasDueSoon = client.suscripciones.some((item) => {
+        if (item.isExpired || !item.expiresAt) return false;
+        const remaining = new Date(item.expiresAt).getTime() - Date.now();
+        return remaining >= 0 && remaining <= SEVEN_DAYS;
+      });
+      // "Necesitan atención" concentra los casos que requieren una acción:
+      // no tienen ninguna activa, ya vencieron o ni siquiera dejaron WhatsApp.
+      const needsAttention =
+        client.activeSubscriptions === 0 || client.expiredSubscriptions > 0 || !client.phone;
+      const matchesStatus =
+        statusFilter === 'all' ||
+        (statusFilter === 'expired' && client.expiredSubscriptions > 0) ||
+        (statusFilter === 'due-soon' && hasDueSoon) ||
+        (statusFilter === 'attention' && needsAttention);
       const searchable = [client.fullName, client.email, client.phone, client.referralCode]
         .filter(Boolean)
         .join(' ')
         .toLocaleLowerCase('es');
 
-      return matchesSubscription && matchesService && (!term || searchable.includes(term));
+      return matchesSubscription && matchesStatus && matchesService && (!term || searchable.includes(term));
     });
-  }, [clients, search, serviceFilter, subscriptionFilter]);
+  }, [clients, search, serviceFilter, statusFilter, subscriptionFilter]);
 
   if (clients.length === 0) {
     return <EmptyDirectory message="Aparecerán aquí en cuanto se registren en la web." />;
@@ -90,6 +108,24 @@ export function ClientDirectory({ clients }: { clients: AdminClientRow[] }) {
             </option>
           ))}
         </select>
+        <div
+          className="flex flex-wrap gap-2 sm:col-span-3"
+          role="group"
+          aria-label="Estado de vencimiento"
+        >
+          <StatusButton active={statusFilter === 'all'} onClick={() => setStatusFilter('all')}>
+            Todos
+          </StatusButton>
+          <StatusButton active={statusFilter === 'expired'} onClick={() => setStatusFilter('expired')}>
+            Ya le venció
+          </StatusButton>
+          <StatusButton active={statusFilter === 'due-soon'} onClick={() => setStatusFilter('due-soon')}>
+            Por vencer
+          </StatusButton>
+          <StatusButton active={statusFilter === 'attention'} onClick={() => setStatusFilter('attention')}>
+            Necesitan atención
+          </StatusButton>
+        </div>
       </div>
 
       <p className="text-xs font-semibold text-[var(--color-content-muted)]" aria-live="polite">
@@ -107,6 +143,31 @@ export function ClientDirectory({ clients }: { clients: AdminClientRow[] }) {
         </div>
       )}
     </div>
+  );
+}
+
+function StatusButton({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  children: ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={
+        active
+          ? 'rounded-full border-2 border-[var(--color-border)] bg-[var(--color-accent)] px-3 py-1.5 text-xs font-bold text-white'
+          : 'rounded-full border-2 border-[var(--color-border)] bg-[var(--color-canvas)] px-3 py-1.5 text-xs font-bold'
+      }
+    >
+      {children}
+    </button>
   );
 }
 
@@ -154,9 +215,15 @@ function ClientCard({ client }: { client: AdminClientRow }) {
               {client.rewards.filter((reward) => reward.status === 'available').length} por reclamar
             </Badge>
           )}
-          <Badge tone={client.suscripciones.length > 0 ? 'success' : 'neutral'}>
-            {client.suscripciones.length} {client.suscripciones.length === 1 ? 'activa' : 'activas'}
+          <Badge tone={client.activeSubscriptions > 0 ? 'success' : 'neutral'}>
+            {client.activeSubscriptions} {client.activeSubscriptions === 1 ? 'activa' : 'activas'}
           </Badge>
+          {client.expiredSubscriptions > 0 && (
+            <Badge tone="danger">
+              {client.expiredSubscriptions}{' '}
+              {client.expiredSubscriptions === 1 ? 'vencida' : 'vencidas'}
+            </Badge>
+          )}
         </div>
       </div>
       <CardContent className="p-4">
